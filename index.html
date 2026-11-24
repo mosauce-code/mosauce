@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Moses Koshy Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Moses Koshy: Electrical Engineering at Dalhousie. Embedded systems, PCB design, robotics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: one TUI console. Status bar, F-key tab row, one framed view at a time, a command line pinned to the bottom, PCB copper traces running behind everything. */
+:root{
+  --bg:#04080a; --panel:#081215; --panel2:#0d1b1f; --line:#1d3d43; --line2:#2b5960;
+  --fg:#d2ebec; --dim:#6f979c; --cyan:#5ce8f2; --amber:#ffb84d; --copper:#c9773e;
+  --ok:#7cf0a2; --bad:#ff6b6b; --pink:#ff86c0;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --disp:"Chakra Petch", "IBM Plex Mono", ui-monospace, sans-serif;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--mono);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto}
+a{color:var(--cyan)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.dim{color:var(--dim)} .ok{color:var(--ok)} .bad{color:var(--bad)} .amb{color:var(--amber)} .cy{color:var(--cyan)}
+
+/* top status bar */
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;padding:12px 0 10px;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.04em}
+.brand b{font-family:var(--disp);font-size:15px;color:var(--cyan);letter-spacing:.12em}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);margin-right:6px;animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.35}}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0 18px}
+.tabs button{background:transparent;border:1px solid var(--line);padding:6px 12px;cursor:pointer;color:var(--dim);letter-spacing:.06em;font-size:13px}
+.tabs button .k{color:var(--amber);margin-right:6px}
+.tabs button:hover{border-color:var(--line2);color:var(--fg)}
+.tabs button[aria-selected="true"]{background:var(--cyan);color:var(--bg);border-color:var(--cyan)}
+.tabs button[aria-selected="true"] .k{color:var(--bg)}
+
+/* boxes */
+.view{display:grid;gap:22px}
+.grid{display:grid;gap:22px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.box{position:relative;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 90%,transparent);padding:20px 18px 16px;min-width:0}
+.box>.lbl{position:absolute;top:-.8em;left:12px;background:var(--bg);padding:0 8px;color:var(--cyan);font-size:12px;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.box>.lbl::before{content:"┤ ";color:var(--line2)} .box>.lbl::after{content:" ├";color:var(--line2)}
+h2,h3{font-family:var(--disp);letter-spacing:.04em;text-wrap:balance;margin:0}
+h3{font-size:18px;color:var(--fg)}
+p{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line2);padding:2px 8px;font-size:12px;color:var(--dim);background:transparent}
+button.chip{cursor:pointer}
+button.chip:hover{color:var(--fg)}
+button.chip[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);padding:7px 14px;cursor:pointer;letter-spacing:.05em}
+.btn:hover{background:color-mix(in srgb,var(--cyan) 14%,transparent)}
+.btn.amber{border-color:var(--amber);color:var(--amber)}
+.btn.amber:hover{background:color-mix(in srgb,var(--amber) 14%,transparent)}
+.btn.ghost{border-color:var(--line2);color:var(--fg)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* status */
+.hero-grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:860px){.hero-grid{grid-template-columns:1fr}}
+.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--amber)}
+.name{font-family:var(--disp);font-weight:700;font-size:clamp(48px,9vw,96px);line-height:.9;margin:10px 0 14px;color:var(--fg);letter-spacing:.02em}
+.name span{color:var(--cyan);text-shadow:0 0 24px color-mix(in srgb,var(--cyan) 45%,transparent)}
+.leadp{max-width:62ch;color:var(--fg)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:16px 0;font-size:13px}
+.kv dt{color:var(--amber)} .kv dd{margin:0;min-width:0}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:12.5px;line-height:1.7}
+#boot .l{display:block;animation:bootin .35s both}
+@keyframes bootin{from{opacity:.25;transform:translateX(-4px)}}
+.cursor{display:inline-block;width:8px;height:14px;background:var(--cyan);vertical-align:-2px;animation:blink 1s steps(2) infinite}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th{color:var(--dim);font-weight:500;text-align:left;border-bottom:1px solid var(--line);padding:4px 8px 6px 0;white-space:nowrap}
+td{padding:5px 8px 5px 0;border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent);vertical-align:top}
+.bars{display:grid;gap:8px;font-size:12.5px}
+.bar{display:grid;grid-template-columns:minmax(0,190px) auto 1fr;gap:10px;align-items:baseline}
+.bar .meter{color:var(--cyan);letter-spacing:-1px;white-space:nowrap}
+.bar .meter i{color:var(--line2);font-style:normal}
+.bar .src{color:var(--dim);font-size:11.5px;min-width:0}
+@media (max-width:560px){.bar{grid-template-columns:1fr auto}.bar .src{grid-column:1/-1}}
+
+/* logs */
+.card h3{margin-bottom:2px}
+.card .org{color:var(--amber);font-size:13px}
+.card ul{margin:10px 0 12px;padding-left:18px}
+.card li{margin:4px 0}
+.card li::marker{content:"› ";color:var(--cyan)}
+
+/* resume */
+.res-grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:980px){.res-grid{grid-template-columns:1fr}}
+.res-ctl{display:grid;gap:22px}
+textarea{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);padding:10px;resize:vertical;font-size:12.5px;line-height:1.5}
+.tgtbtn{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--line);padding:8px 10px;cursor:pointer;color:var(--fg)}
+.tgtbtn small{display:block;color:var(--dim);font-size:11.5px}
+.tgtbtn[aria-pressed="true"]{border-color:var(--cyan);background:color-mix(in srgb,var(--cyan) 10%,transparent)}
+.tgtbtn[aria-pressed="true"]::before{content:"▶ ";color:var(--cyan)}
+.tgtlist{display:grid;gap:6px}
+.cov{font-family:var(--disp);font-size:28px;color:var(--cyan)}
+.kwok{border-color:color-mix(in srgb,var(--ok) 60%,transparent);color:var(--ok)}
+.kwno{border-color:color-mix(in srgb,var(--amber) 60%,transparent);color:var(--amber)}
+.paperwrap{min-width:0}
+.paper{background:#fbfbf7;color:#17191b;font-family:var(--sans);font-size:13px;line-height:1.45;padding:38px 44px;box-shadow:0 0 0 1px var(--line2),0 20px 60px -20px #000;max-width:860px;margin:0 auto}
+@media (max-width:600px){.paper{padding:22px 18px;font-size:12px}}
+.paper h1{font-family:var(--sans);font-size:26px;letter-spacing:.01em;margin:0}
+.paper .rh{font-weight:600;color:#1f5f66;margin-top:2px}
+.paper .rc{color:#444;font-size:12px;margin-top:4px}
+.paper .rs{margin-top:16px}
+.paper .rs>h4{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#1f5f66;border-bottom:1.5px solid #1f5f66;padding-bottom:2px;margin:0 0 8px}
+.paper .ro{margin:0 0 10px}
+.paper .rt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 12px}
+.paper .rt b{font-weight:700}
+.paper .rt .d{color:#555;font-size:12px;font-variant-numeric:tabular-nums}
+.paper .rorg{color:#333;font-style:italic}
+.paper ul{margin:4px 0 0;padding-left:0;list-style:none}
+.paper li{display:flex;gap:6px;align-items:flex-start;margin:2px 0}
+.paper li .dot{flex:none;width:14px;color:#1f5f66}
+.paper li .bt{flex:1;min-width:0}
+.paper .tg,.paper .fit,.paper .addb{font-family:var(--mono);font-size:10.5px}
+.paper .tg{flex:none;width:18px;height:18px;border:1px solid #9ab;background:#fff;color:#1f5f66;cursor:pointer;padding:0;line-height:16px}
+.paper .fit{flex:none;color:#7a8a8c;padding-top:2px}
+.paper .addb{background:none;border:1px dashed #9ab;color:#1f5f66;cursor:pointer;padding:1px 8px;margin:4px 0 0 20px}
+.paper li.off .bt{text-decoration:line-through;color:#999}
+.paper li.off .tg{color:#bbb}
+.paper .skl div{margin:1px 0}
+.paper .skl b{font-weight:600}
+.paper [contenteditable]{outline:none;border-radius:2px}
+.paper.edit [contenteditable]:hover{background:#eaf4f4}
+.paper.edit [contenteditable]:focus{background:#e2f1f2;box-shadow:0 0 0 1px #7fb7bb}
+.paper .ph{border-bottom:1px dashed #c47f2a;color:#a0601c}
+.paper.clean .off,.paper.clean .tg,.paper.clean .fit,.paper.clean .addb,.paper.clean .empty{display:none}
+.paper.clean li .dot{display:inline}
+.paper.edit li .dot{display:none}
+.paper .ghostrole{opacity:.55}
+.paper.clean .ghostrole{display:none}
+#printbtn[hidden]{display:none}
+
+/* sims */
+.gmenu{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px}
+.gbtn{text-align:left;background:transparent;border:1px solid var(--line);padding:10px 12px;cursor:pointer;color:var(--fg)}
+.gbtn b{display:block;font-family:var(--disp);letter-spacing:.06em;font-size:15px}
+.gbtn small{color:var(--dim);font-size:11.5px;display:block;margin-top:2px}
+.gbtn .key{color:var(--amber)}
+.gbtn[aria-pressed="true"]{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 8%,transparent)}
+canvas.sim{display:block;width:100%;background:#03070a;border:1px solid var(--line)}
+.gwrap{display:grid;gap:18px}
+.g-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:18px}
+@media (max-width:860px){.g-split{grid-template-columns:1fr}}
+.ctrls{display:grid;gap:12px}
+.ctrl label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim)}
+.ctrl label output{color:var(--cyan);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--cyan)}
+.radio{display:grid;gap:6px}
+.radio label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);padding:6px 8px;cursor:pointer;font-size:12.5px}
+.radio label:has(input:checked){border-color:var(--cyan);background:color-mix(in srgb,var(--cyan) 8%,transparent)}
+.radio small{display:block;color:var(--dim)}
+select{background:var(--bg);border:1px solid var(--line);padding:5px 8px}
+.checks{display:grid;gap:4px;font-size:12.5px}
+.checks div{display:grid;grid-template-columns:52px minmax(0,130px) 1fr;gap:8px}
+.verdict{font-family:var(--disp);font-size:20px;letter-spacing:.06em}
+.log{height:170px;overflow:auto;background:#03070a;border:1px solid var(--line);padding:8px;font-size:12px;line-height:1.5}
+.log div{white-space:pre-wrap}
+.big{font-family:var(--disp);font-size:26px;color:var(--cyan);font-variant-numeric:tabular-nums}
+.wdtbar{height:14px;border:1px solid var(--line2);position:relative}
+.wdtbar i{position:absolute;inset:0 auto 0 0;background:var(--ok);display:block}
+.kick{font-family:var(--disp);font-size:20px;letter-spacing:.1em;padding:14px;width:100%}
+.hex{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
+.hex span{border:1px solid var(--line2);padding:4px 6px;font-size:14px;min-width:24px;text-align:center;position:relative}
+.hex span small{display:block;font-size:9px;color:var(--dim);letter-spacing:.04em}
+.hex small{visibility:hidden} .hex.hint small{visibility:visible}
+.hint .f-a{border-color:var(--pink);color:var(--pink)} .hint .f-f{border-color:var(--amber);color:var(--amber)}
+.hint .f-n{border-color:var(--dim)} .hint .f-d{border-color:var(--cyan);color:var(--cyan)} .hint .f-c{border-color:var(--ok);color:var(--ok)}
+.opts{display:grid;gap:8px;margin-top:12px}
+.opt{text-align:left;background:transparent;border:1px solid var(--line2);padding:9px 12px;cursor:pointer;color:var(--fg)}
+.opt:hover:not(:disabled){border-color:var(--cyan)}
+.opt.right{border-color:var(--ok);color:var(--ok)} .opt.wrong{border-color:var(--bad);color:var(--bad)} .opt.meh{border-color:var(--amber);color:var(--amber)}
+.opt:disabled{cursor:default}
+pre.code{background:#03070a;border:1px solid var(--line);padding:10px 12px;overflow-x:auto;white-space:pre;font-size:12px}
+pre.code .c{color:var(--dim)} pre.code .n{color:var(--amber)} pre.code .f{color:var(--cyan)}
+
+/* jarvis */
+.jgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:22px}
+@media (max-width:820px){.jgrid{grid-template-columns:1fr}}
+.reactor{position:relative;width:min(240px,70vw);aspect-ratio:1;max-width:100%;margin:6px auto 10px}
+.reactor div{position:absolute;border-radius:50%}
+.r1{inset:0;border:1px solid var(--line2);background:repeating-conic-gradient(var(--cyan) 0 2deg,transparent 2deg 10deg);-webkit-mask:radial-gradient(circle,transparent 66%,#000 67%,#000 70%,transparent 71%);mask:radial-gradient(circle,transparent 66%,#000 67%,#000 70%,transparent 71%);animation:spin 30s linear infinite}
+.r2{inset:12%;border:2px solid transparent;border-top-color:var(--cyan);border-bottom-color:var(--amber);animation:spin 6s linear infinite reverse}
+.r3{inset:24%;border:1px dashed var(--line2);animation:spin 18s linear infinite}
+.r4{inset:33%;background:radial-gradient(circle,color-mix(in srgb,var(--cyan) 70%,#fff) 0,var(--cyan) 30%,color-mix(in srgb,var(--cyan) 20%,transparent) 62%,transparent 70%);box-shadow:0 0 50px color-mix(in srgb,var(--cyan) 50%,transparent);animation:pulse 3s ease-in-out infinite}
+.rlabel{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--disp);font-size:13px;letter-spacing:.2em;color:var(--bg);font-weight:700;text-align:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{opacity:.75;transform:scale(.95)}}
+#jlog{min-height:150px}
+#jlog .jl{display:block;margin:0 0 6px}
+#jlog .jl::before{content:"J ▸ ";color:var(--cyan)}
+.skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:16px}
+.sk{border:1px solid var(--line);padding:14px;background:var(--panel2);display:grid;gap:8px;align-content:start;transition:border-color .3s}
+.sk.flash{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+.sk h4{margin:0;font-family:var(--disp);font-size:17px;letter-spacing:.03em}
+.sk .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pri{font-size:11px;padding:1px 7px;border:1px solid;letter-spacing:.06em}
+.pri.P1{color:var(--bg);background:var(--cyan);border-color:var(--cyan)}
+.pri.P2{color:var(--cyan);border-color:var(--cyan)}
+.pri.P3{color:var(--dim);border-color:var(--line2)}
+.sk .tag{font-size:11px;color:var(--amber);letter-spacing:.08em}
+.sk p{font-size:13px}
+.sk .lab{color:var(--amber);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;display:block}
+.acq{display:flex;flex-wrap:wrap;gap:6px}
+.acq span{border:1px solid color-mix(in srgb,var(--ok) 45%,transparent);color:var(--ok);font-size:12px;padding:2px 8px}
+
+/* command line */
+.cmd{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--panel) 96%,transparent);border-top:1px solid var(--line2);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));backdrop-filter:blur(6px)}
+.cmd .in{max-width:1200px;margin:0 auto}
+#cmdout{max-height:22vh;overflow:auto;font-size:12.5px;line-height:1.5}
+#cmdout div{white-space:pre-wrap;word-break:break-word}
+#cmdf{display:flex;gap:8px;align-items:center}
+#cmdf label{color:var(--ok);white-space:nowrap;font-size:13px}
+#cmdin{flex:1;min-width:0;background:transparent;border:0;outline:none;color:var(--fg);font-size:14px;padding:6px 0;caret-color:var(--cyan)}
+footer{margin-top:28px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media print{
+  body{background:#fff;padding:0}
+  body *{visibility:hidden}
+  #paper,#paper *{visibility:visible}
+  #paper{position:absolute;left:0;top:0;box-shadow:none;max-width:none;width:100%;padding:0}
+  #paper .off,#paper .tg,#paper .fit,#paper .addb,#paper .empty,#paper .ghostrole{display:none!important}
+  #paper li .dot{display:inline!important}
+  #bg,.cmd{display:none}
+}
+</style>
+
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>MK-OS</b> <span class="dim">v26.11 · moses@halifax:~</span></div>
+    <div><span class="live" aria-hidden="true"></span>J.A.R.V.I.S. ONLINE · <span id="clock" class="cy">--:--:--</span> <span class="dim">Halifax</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-v="status"><span class="k">1</span>STATUS</button>
+    <button role="tab" data-v="logs"><span class="k">2</span>LOGS</button>
+    <button role="tab" data-v="resume"><span class="k">3</span>RESUME.EXE</button>
+    <button role="tab" data-v="sims"><span class="k">4</span>SIMS</button>
+    <button role="tab" data-v="jarvis"><span class="k">5</span>J.A.R.V.I.S.</button>
+  </nav>
+
+  <main>
+    <!-- STATUS -->
+    <section class="view" id="v-status">
+      <div class="grid hero-grid">
+        <div class="box"><span class="lbl">whoami</span>
+          <div class="eyebrow">ELECTRICAL ENGINEERING · EMBEDDED SYSTEMS · PCB DESIGN</div>
+          <h1 class="name">MOSES<br><span>KOSHY</span></h1>
+          <p class="leadp">I'm an Electrical Engineering student at Dalhousie University. I design telemetry PCBs for combat robots, write motor-control firmware with failsafes, and bring up embedded Linux vision hardware.</p>
+          <dl class="kv">
+            <dt>LOC</dt><dd>Halifax, Nova Scotia</dd>
+            <dt>NOW</dt><dd>Telemetry PCB Designer · Dalhousie Combat Robotics</dd>
+            <dt>EDU</dt><dd>BEng Electrical, Dalhousie (2026–2028) · Diploma in Engineering, Saint Mary's (GPA 3.4)</dd>
+            <dt>NET</dt><dd><a href="https://www.linkedin.com/in/moses-koshy/" target="_blank" rel="noopener">linkedin.com/in/moses-koshy</a></dd>
+          </dl>
+          <div class="row">
+            <button class="btn" data-go="resume">Build a resume →</button>
+            <button class="btn amber" data-go="sims">Run the simulations →</button>
+            <button class="btn ghost" data-go="jarvis">Ask J.A.R.V.I.S. →</button>
+          </div>
+        </div>
+        <div class="box"><span class="lbl">boot.log</span><pre id="boot"></pre></div>
+      </div>
+      <div class="grid g2">
+        <div class="box"><span class="lbl">top · processes</span><div class="tablewrap"><table id="ps"></table></div></div>
+        <div class="box"><span class="lbl">signal strength · sources per skill</span><div class="bars" id="bars"></div></div>
+      </div>
+    </section>
+
+    <!-- LOGS -->
+    <section class="view" id="v-logs" hidden>
+      <div class="row" id="logfilter"></div>
+      <div class="grid g2" id="logcards"></div>
+      <div class="grid g2">
+        <div class="box"><span class="lbl">education</span><div id="edu"></div></div>
+        <div class="box"><span class="lbl">licenses &amp; memberships</span><div id="certs"></div></div>
+      </div>
+    </section>
+
+    <!-- RESUME -->
+    <section class="view" id="v-resume" hidden>
+      <div class="res-grid">
+        <aside class="res-ctl">
+          <div class="box"><span class="lbl">1 · target role</span>
+            <div class="tgtlist" id="targets"></div>
+          </div>
+          <div class="box"><span class="lbl">2 · job posting scan</span>
+            <p class="dim" style="font-size:12.5px;margin-bottom:8px">Paste a real posting. J.A.R.V.I.S. finds the keywords you can back up, flags the gaps, and moves the matching bullets up.</p>
+            <label for="jd" class="dim" style="font-size:11.5px">Posting text (the example below is a sample, replace it)</label>
+            <textarea id="jd" rows="9"></textarea>
+            <div class="row" style="margin-top:8px">
+              <button class="btn" id="jdgo">Scan posting</button>
+              <label style="font-size:12.5px"><input type="checkbox" id="jdrank" checked> Re-rank bullets</label>
+            </div>
+            <div id="jdout" style="margin-top:12px;display:grid;gap:10px"></div>
+          </div>
+          <div class="box"><span class="lbl">3 · edit &amp; export</span>
+            <div class="row">
+              <button class="chip" id="m-edit" aria-pressed="true">Edit view</button>
+              <button class="chip" id="m-clean" aria-pressed="false">Clean view</button>
+            </div>
+            <ul class="dim" style="font-size:12.5px;padding-left:18px;margin:10px 0">
+              <li>Click any text on the page to rewrite it.</li>
+              <li>The ✓ box includes or drops a bullet. The number is how well it fits this role.</li>
+              <li>Edits are saved in this browser, separately for each target.</li>
+            </ul>
+            <div class="row">
+              <button class="btn" id="copytxt">Copy as text</button>
+              <button class="btn ghost" id="printbtn" hidden>Print / Save PDF</button>
+              <button class="btn ghost" id="resetbtn">Reset this target</button>
+            </div>
+            <p id="exmsg" class="ok" style="font-size:12.5px;margin-top:8px"></p>
+          </div>
+        </aside>
+        <div class="paperwrap"><div id="paper" class="paper edit"></div></div>
+      </div>
+    </section>
+
+    <!-- SIMS -->
+    <section class="view" id="v-sims" hidden>
+      <div class="box"><span class="lbl">sims · pick a program</span>
+        <p class="dim" style="font-size:12.5px;margin-bottom:12px">Each sim is based on something I built. The models are simplified, but the trade-offs are real.</p>
+        <div class="gmenu" id="gmenu"></div>
+      </div>
+      <div id="gstage"></div>
+    </section>
+
+    <!-- JARVIS -->
+    <section class="view" id="v-jarvis" hidden>
+      <div class="jgrid">
+        <div class="box"><span class="lbl">core</span>
+          <div class="reactor" aria-hidden="true"><div class="r1"></div><div class="r2"></div><div class="r3"></div><div class="r4"></div><div class="rlabel">J.A.R.V.I.S.</div></div>
+          <p class="dim" style="font-size:12px;text-align:center">Just A Rather Very Intelligent Skill-planner</p>
+        </div>
+        <div class="box"><span class="lbl">briefing</span>
+          <div id="jlog"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="jreplay">Replay briefing</button>
+            <button class="btn ghost" id="jvoice">Read it aloud</button>
+          </div>
+          <div style="margin-top:16px"><span class="dim" style="font-size:12px">CAREER VECTOR</span>
+            <div class="chips" id="jpaths" style="margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="box"><span class="lbl">acquired · verified from your profile</span><div class="acq" id="acq"></div></div>
+      <div class="box"><span class="lbl">recommended upgrades</span>
+        <p class="dim" style="font-size:12.5px;margin-bottom:14px"><span class="pri P1">P1</span> do next &nbsp; <span class="pri P2">P2</span> this year &nbsp; <span class="pri P3">P3</span> explore. Each one starts from work you've already done.</p>
+        <div class="skgrid" id="skgrid"></div>
+      </div>
+      <div class="box"><span class="lbl">course plan · Dalhousie BEng electrical</span>
+        <p class="dim" style="font-size:12.5px;margin-bottom:10px">Subject areas to look for in Dalhousie's electrical &amp; computer engineering (ECED) listings and technical electives. Course names and numbers change, so check the current calendar.</p>
+        <div class="tablewrap"><table id="classes"></table></div>
+      </div>
+    </section>
+  </main>
+  <footer>MK-OS · built from my LinkedIn profile · type <span class="cy">help</span> in the command line below</footer>
+</div>
+
+<div class="cmd"><div class="in">
+  <div id="cmdout" aria-live="polite"></div>
+  <form id="cmdf" autocomplete="off"><label for="cmdin">moses@mk-os:~$</label><input id="cmdin" spellcheck="false" placeholder="type help, or try: play flamingo"></form>
+</div></div>
+
+<script>
+"use strict";
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem("mk."+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("mk."+k,JSON.stringify(v))}catch(e){}}};
+const REDUCE=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const C={bg:"#04080a",line:"#1d3d43",line2:"#2b5960",fg:"#d2ebec",dim:"#6f979c",cyan:"#5ce8f2",amber:"#ffb84d",copper:"#c9773e",ok:"#7cf0a2",bad:"#ff6b6b",pink:"#ff86c0"};
+const rnd=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>Math.floor(rnd(a,b+1)), pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function fit(cv,h){const dpr=Math.min(2,window.devicePixelRatio||1);const w=cv.clientWidth||600;cv.style.height=h+"px";
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w,h}}
+
+/* ================= DATA (from LinkedIn) ================= */
+// tags: emb firmware · pcb hardware · rob robotics · pwr power · test test/bring-up · res research · comm communication · ops operations
+const ROLES=[
+ {id:"dcr",ref:"U1",title:"Telemetry PCB Designer",org:"Dalhousie Combat Robotics Team",dates:"Sep 2026 – Present",start:"2026-09",end:null,kind:"tech",
+  skills:["PCB design","ESP32","Sensor integration","Power regulation"],
+  b:[["dcr1","Designing the robot’s telemetry PCB around an ESP32, integrating sensor acquisition and connections to the other robot subsystems.","pcb emb rob"],
+     ["dcr2","Evaluating 3.3 V regulation from a 3S LiPo pack, selecting components on current capacity, thermal performance, output ripple and motor-supply transients.","pwr pcb test"],
+     ["dcr3","Coordinating with teammates to define component interfaces, power requirements, board dimensions and mounting constraints.","pcb rob comm"]]},
+ {id:"s3a",ref:"U2",title:"Undergraduate Research Assistant",org:"S3A Lab, Saint Mary’s University",dates:"Jun 2026 – Sep 2026",start:"2026-06",end:"2026-09",kind:"tech",
+  skills:["KiCad","ATmega328P","RS-485 Modbus","SPI","Arduino C++","Python","Jetson TX2","OpenCV","Docker","Home Assistant"],
+  b:[["s3a1","Designed KiCad schematics and 2-layer PCB specifications for an ATmega328P monitoring node with RS-485 Modbus sensor communication, power regulation, RTC timekeeping and SPI data logging.","pcb emb res pwr"],
+     ["s3a2","Wrote Arduino C++ motor-driver firmware with a safety watchdog failsafe, and validated motion and differential-steering kinematics with Python test scripts over USB serial.","emb rob test"],
+     ["s3a3","Set up and troubleshot an NVIDIA Jetson TX2, resolving network configuration issues and establishing the SDK build pipeline for a TaraXL stereo camera.","rob res emb test"],
+     ["s3a4","Standardized operating documentation and setup procedures for lab equipment, including a wind-turbine controller testbench and a Docker-based Home Assistant IoT network.","res test pwr comm"],
+     ["s3a5","Supported embedded hardware, mobile robotics and system bring-up across several lab projects under Dr. Adel Merabet.","res rob"]]},
+ {id:"obs",ref:"U3",title:"Tour Guide",org:"Burke-Gaffney Observatory, Saint Mary’s University",dates:"Sep 2024 – Sep 2026",start:"2024-09",end:"2026-09",kind:"lead",
+  skills:["Technical communication","Guided tours"],
+  b:[["obs1","Led guided tours of the observatory, explaining astrophysics and optical instrumentation to audiences with no technical background.","comm res"]]},
+ {id:"jet",ref:"U4",title:"Vice President",org:"Jet Lag Society, Saint Mary’s University",dates:"Sep 2024 – Sep 2026",start:"2024-09",end:"2026-09",kind:"lead",
+  skills:["Strategy","Event planning","Route design"],
+  b:[["jet1","Co-led a student club running city-wide, transit-based strategy games across Halifax, owning logistics, route design, rules and player communications.","comm ops"],
+     ["jet2","Grew membership through campus outreach and social media.","comm"]]},
+ {id:"pack",ref:"U5",title:"Pack Leader (Welcome Coordinator)",org:"Saint Mary’s University",dates:"Aug 2025 – Mar 2026",start:"2025-08",end:"2026-03",kind:"lead",
+  skills:["Leadership","Event coordination","Mentorship"],
+  b:[["pack1","Served as a primary contact and peer mentor for incoming students during orientation.","comm"],
+     ["pack2","Planned and coordinated on-campus events, managing logistics and communication across multiple departments.","comm ops"]]},
+ {id:"sob",ref:"U6",title:"Cashier",org:"Sobeys",dates:"Jun 2026 – Present",start:"2026-06",end:null,kind:"work",
+  skills:["Customer service","POS systems","Cash handling"],
+  b:[["sob1","Process cash, debit and credit transactions accurately during peak shifts, following cash-handling and loss-prevention procedures including till counts.","ops comm"],
+     ["sob2","Assist customers with price checks, product location and general inquiries.","comm"]]},
+ {id:"fdx",ref:"U7",title:"Package Handler",org:"FedEx Canada",dates:"Mar 2026 – May 2026",start:"2026-03",end:"2026-05",kind:"work",
+  skills:["RF scanners","Logistics","Safety compliance"],
+  b:[["fdx1","Sorted and routed high parcel volumes to tight dispatch schedules, using handheld RF scanners for real-time tracking and data verification.","ops test"],
+     ["fdx2","Worked with the team to optimize loading procedures, meeting throughput targets while upholding safety compliance.","ops"]]},
+ {id:"ens",ref:"U8",title:"Student Member",org:"Engineers Nova Scotia",dates:"Sep 2024 – Present",start:"2024-09",end:null,kind:"aff",skills:["Professional development"],
+  b:[["ens1","Student member of Nova Scotia’s professional engineering association.","comm"]]}
+];
+const PROJECTS=[
+ {id:"fla",ref:"J1",title:"Ping-Pong Launcher Robot (“Flamingo”)",org:"Saint Mary’s University · team project",dates:"Jan 2026 – May 2026",
+  b:[["fla1","Built a two-motor autonomous launcher on an Arduino Uno (ATmega328P) with an L298N dual H-bridge driving the propulsion and rotary launch motors.","emb rob"],
+     ["fla2","Programmed a button-triggered sequence in Arduino C (advance 1.1 s, fire 0.4 s, reverse 1.1 s) using PWM for motor speed and direction.","emb rob"],
+     ["fla3","Validated the full circuit in Tinkercad before building it, and wrote the team’s technical documentation and wiring guide.","test comm pcb"]]},
+ {id:"soil",ref:"J2",title:"Soil-Health Monitoring Instrumentation",org:"Saint Mary’s University · 4-person team",dates:"Jan 2026 – May 2026",
+  b:[["soil1","Integrated an RS-485 7-in-1 soil sensor with an Arduino Nano over serial, showing live nitrogen, temperature and conductivity readings on an LCD with a pushbutton menu.","emb res"],
+     ["soil2","Designed an AC-to-DC rectification circuit to supply regulated power to the sensor system, verified it with an oscilloscope, and merged the power and sensor circuits on one board.","pwr test pcb"],
+     ["soil3","Took the design from Tinkercad simulation to a physical breadboard; the next phase converts it to a compact PCB with an enclosure and battery supply.","pcb res"]]}
+];
+const EDU=[
+ {s:"Dalhousie University",d:"Bachelor of Engineering, Electrical & Electronics Engineering",t:"Sep 2026 – May 2028 (expected)",n:"Entered after completing the Diploma in Engineering."},
+ {s:"Saint Mary’s University",d:"Diploma in Engineering, Electrical & Electronics",t:"Sep 2024 – Aug 2026",n:"GPA 3.4 · Circuit design, Verilog · Intramural soccer, basketball, badminton"}
+];
+const CERTS=[["WHMIS 2015","Dalhousie University · Sep 2026"],["WHMIS 2015","Sobeys · May 2026 (expires May 2027)"],["Student Member","Engineers Nova Scotia · since Sep 2024"]];
+
+const TARGETS={
+ emb:{name:"Embedded Systems / Firmware",short:"firmware",w:{emb:3,rob:1,test:1,pcb:1,res:.5,pwr:.5},lead:["obs","jet"],skills:["emb","proto","sw","hw","safety"],
+  headline:"Electrical Engineering Student · Embedded Systems",
+  summary:"Electrical engineering student at Dalhousie University with hands-on firmware experience on ATmega328P, ESP32 and NVIDIA Jetson platforms. Wrote motor-control firmware with watchdog failsafes, integrated RS-485 Modbus and SPI peripherals, and validated hardware with Python test scripts. Seeking an embedded systems co-op."},
+ pcb:{name:"PCB / Hardware Design",short:"hardware",w:{pcb:3,pwr:2,emb:1,test:1,rob:.5,res:.5},lead:["obs","jet"],skills:["hw","emb","proto","sw","safety"],
+  headline:"Electrical Engineering Student · PCB & Hardware Design",
+  summary:"Electrical engineering student at Dalhousie University designing telemetry PCBs in KiCad for a combat robot and a lab monitoring node, with a focus on power regulation, sensor interfaces and mechanical fit. Comfortable taking a circuit from simulation to breadboard to board. Seeking a hardware design co-op."},
+ rob:{name:"Robotics & Automation",short:"robotics",w:{rob:3,emb:2,test:1,pcb:1,res:.5},lead:["jet","obs"],skills:["emb","hw","proto","sw","safety"],
+  headline:"Electrical Engineering Student · Robotics & Embedded Control",
+  summary:"Electrical engineering student at Dalhousie University and telemetry lead on the Dalhousie Combat Robotics Team. Built motor-driver firmware with differential-steering kinematics and failsafes, an autonomous launcher robot, and a Jetson-based stereo vision setup. Seeking a robotics or automation co-op."},
+ pwr:{name:"Power & Energy Systems",short:"power",w:{pwr:3,test:2,pcb:1,res:1,emb:.5},lead:["obs","jet"],skills:["hw","proto","emb","sw","safety"],
+  headline:"Electrical Engineering Student · Power Electronics & Energy",
+  summary:"Electrical engineering student at Dalhousie University with practical power-design experience: 3.3 V regulation from 3S LiPo packs under motor transients, AC-to-DC rectification verified on an oscilloscope, and documentation for a wind-turbine controller testbench. Seeking a power or energy systems co-op."},
+ test:{name:"Test & Lab Technician",short:"test",w:{test:3,res:2,pwr:1,emb:1,pcb:.5,comm:.5},lead:["obs","fdx"],skills:["hw","proto","sw","emb","safety"],
+  headline:"Electrical Engineering Student · Test, Bring-up & Lab Systems",
+  summary:"Electrical engineering student at Dalhousie University who brings hardware up and writes the procedures for it. Validated firmware with Python test scripts over USB serial, verified power circuits with an oscilloscope, and standardized lab equipment documentation. WHMIS 2015 certified. Seeking a test or lab technician co-op."},
+ res:{name:"Research Assistant",short:"research",w:{res:3,emb:1,rob:1,pcb:1,comm:1,test:1},lead:["obs","jet","pack"],skills:["hw","emb","sw","proto","safety"],
+  headline:"Electrical Engineering Student · Embedded & Robotics Research",
+  summary:"Electrical engineering student at Dalhousie University and former undergraduate research assistant in the S3A Lab at Saint Mary’s University, where I worked on embedded hardware, mobile robotics and vision system bring-up. Experienced at explaining technical work to non-specialists. Seeking a research assistant position."}
+};
+const SKILLGROUPS={
+ hw:["Hardware","PCB design (KiCad), schematic capture, 3.3 V power regulation, AC–DC rectification, Tinkercad simulation, breadboard prototyping, oscilloscope"],
+ emb:["Embedded","Arduino C/C++, ESP32, ATmega328P, PWM motor control (L298N H-bridge), watchdog failsafes"],
+ proto:["Interfaces","RS-485 / Modbus, SPI, UART & USB serial, RTC timekeeping, sensor integration"],
+ sw:["Software","Python (test scripts), C/C++ (CLion), Verilog, embedded Linux (Jetson TX2), Docker, OpenCV, Excel"],
+ safety:["Safety","WHMIS 2015 certified"]
+};
+// keyword scanner: [label, have?, regex alternatives, jarvis skill id]
+const KW=[
+ ["PCB design",1,["pcbs?","printed circuit","board layout","layout"]],["KiCad",1,["kicad"]],["Schematics",1,["schematics?"]],
+ ["Embedded C/C++",1,["embedded c","c/c\\+\\+","c\\+\\+","firmware","embedded software"]],["Arduino",1,["arduino"]],["ESP32",1,["esp32"]],
+ ["Microcontrollers",1,["microcontrollers?","mcus?","atmega\\w*","avr"]],["Python",1,["python"]],["RS-485 / Modbus",1,["rs-?485","modbus"]],
+ ["SPI",1,["spi"]],["UART / serial",1,["uart","serial"]],["Power regulation",1,["power suppl\\w*","regulators?","regulation","power electronics","dc-dc","buck"]],
+ ["Sensors",1,["sensors?"]],["Oscilloscope",1,["oscilloscopes?","test equipment"]],["Robotics",1,["robot\\w*"]],["Motor control",1,["motors?"]],
+ ["Linux",1,["linux"]],["Docker",1,["docker"]],["Vision / OpenCV",1,["opencv","computer vision","vision"]],["Verilog",1,["verilog","hdl"]],
+ ["Documentation",1,["documentation","document\\w*","procedures?","technical writing"]],["Communication",1,["communication","customers?"]],
+ ["Teamwork",1,["team\\w*"]],["Safety / WHMIS",1,["whmis","safety"]],["Bring-up / testing",1,["bring[- ]up","validat\\w*","testing","debug\\w*"]],
+ ["Soldering",0,["solder\\w*"],"ipc"],["I²C",0,["i2c","i²c"],"i2c"],["CAN bus",0,["can bus","canbus","can-bus"],"can"],
+ ["STM32 / ARM",0,["stm32","arm","cortex-m\\w*"],"stm32"],["RTOS",0,["rtos","freertos","zephyr"],"rtos"],["Altium",0,["altium"],"4layer"],
+ ["SPICE simulation",0,["spice","ltspice"],"spice"],["MATLAB / Simulink",0,["matlab","simulink"],null],["LabVIEW",0,["labview"],"pytest"],
+ ["PLC / SCADA",0,["plcs?","scada","ladder logic"],"plc"],["ROS",0,["ros","ros ?2"],"ros"],["Git",0,["git","github","version control"],"git"],
+ ["CAD (SolidWorks)",0,["solidworks","fusion 360","cad"],null],["FPGA",0,["fpgas?"],"fpga"],["EMC / EMI",0,["emc","emi"],"emc"],
+ ["Wireless (BLE/Wi-Fi)",0,["bluetooth","ble","wi-?fi","wireless"],"rtos"],["Automated testing",0,["unit tests?","ci/cd","continuous integration","pytest","test automation","automated (?:hardware )?test\\w*"],"pytest"],
+ ["Logic analyzer",0,["logic analy[sz]ers?"],"i2c"]
+].map(([label,have,alts,sk])=>({label,have:!!have,sk,re:new RegExp("(?<![a-z0-9])(?:"+alts.join("|")+")(?![a-z0-9])","i")}));
+
+const SAMPLE_JD=`EXAMPLE POSTING (replace with a real one)
+Embedded Systems Co-op Student, Winter 2027
+Responsibilities:
+- Develop and test firmware in C/C++ for ARM-based microcontrollers
+- Bring up new PCBs and debug with an oscilloscope and logic analyzer
+- Write Python scripts for automated hardware testing
+- Interface sensors over I2C, SPI and UART
+- Document test procedures and results
+Assets: RTOS experience (FreeRTOS or Zephyr), CAN bus, KiCad or Altium, Git.`;
+
+/* ================= ROUTER & TABS ================= */
+const VIEWS=["status","logs","resume","sims","jarvis"];
+let curView=null;
+function show(v,push=true){
+  if(!VIEWS.includes(v)) v="status";
+  if(curView==="sims"&&v!=="sims") stopGame();
+  curView=v;
+  VIEWS.forEach(x=>{$("#v-"+x).hidden=x!==v});
+  $$(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
+  if(push&&location.hash!=="#"+v){try{history.replaceState(null,"","#"+v)}catch(e){location.hash=v}}
+  if(v==="jarvis") jarvisBrief();
+  if(v==="sims"&&!activeGame) startGame(store.get("lastGame","reg"));
+}
+$$(".tabs button").forEach(b=>b.onclick=()=>show(b.dataset.v));
+$$("[data-go]").forEach(b=>b.onclick=()=>{show(b.dataset.go);window.scrollTo({top:0})});
+addEventListener("hashchange",()=>show(location.hash.slice(1),false));
+const typing=()=>{const a=document.activeElement;return a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable)};
+addEventListener("keydown",e=>{
+  if(typing()||e.metaKey||e.ctrlKey||e.altKey) return;
+  const n="12345".indexOf(e.key); if(n>=0){show(VIEWS[n]);return}
+  if(e.key==="/"){e.preventDefault();$("#cmdin").focus()}
+});
+
+/* clock */
+function tick(){try{$("#clock").textContent=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Halifax",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date())}catch(e){$("#clock").textContent=new Date().toLocaleTimeString()}}
+tick();setInterval(tick,1000);
+
+/* ================= STATUS ================= */
+(function status(){
+  const L=[
+   ["OK","POST: Diploma in Engineering","Saint Mary’s, GPA 3.4"],
+   ["OK","Mounting /dev/dalhousie","BEng Electrical, 2026–2028"],
+   ["OK","Loading module: kicad","2 boards in design"],
+   ["OK","Probing RS-485 · SPI · UART","3 buses online"],
+   ["OK","Bringing up jetson-tx2","network fixed, SDK built"],
+   ["OK","Arming motor watchdog","failsafe active"],
+   ["OK","Loading 3s-lipo regulator study","ripple, thermals, transients"],
+   ["WARN","i2c · rtos · git","not found, see J.A.R.V.I.S."],
+   ["OK","System ready","type help below"]];
+  $("#boot").innerHTML=L.map(([s,a,b],i)=>`<span class="l" style="animation-delay:${i*90}ms"><span class="${s==="OK"?"ok":"amb"}">[${s==="OK"?" OK ":"WARN"}]</span> ${esc(a)} <span class="dim">· ${esc(b)}</span></span>`).join("")+`<span class="cursor" aria-hidden="true"></span>`;
+  const rows=ROLES.slice().sort((a,b)=>b.start.localeCompare(a.start));
+  $("#ps").innerHTML=`<thead><tr><th>REF</th><th>PROCESS</th><th>START</th><th>STATE</th></tr></thead><tbody>`+
+   rows.map(r=>`<tr><td class="amb">${r.ref}</td><td>${esc(r.title)}<br><span class="dim">${esc(r.org)}</span></td><td>${r.start}</td><td>${r.end?'<span class="dim">EXIT 0</span>':'<span class="ok">● RUN</span>'}</td></tr>`).join("")+`</tbody>`;
+  const SIG=[
+   ["Embedded C/C++ firmware",["S3A motor driver","Flamingo","Soil sensor","CLion"]],
+   ["PCB design (KiCad)",["Combat telemetry board","S3A monitoring node","Soil PCB plan"]],
+   ["Power regulation",["3S LiPo study","S3A node","AC–DC rectifier"]],
+   ["Serial buses (RS-485/SPI/UART)",["S3A Modbus + SPI","Soil RS-485"]],
+   ["Robotics & motor control",["Combat Robotics","S3A mobile robot","Flamingo"]],
+   ["Technical communication",["Observatory tours","S3A procedures","Flamingo wiring guide"]],
+   ["Embedded Linux & vision",["Jetson TX2 + TaraXL","Docker Home Assistant"]],
+   ["Python test scripting",["S3A USB-serial tests"]],
+   ["Leadership & events",["Jet Lag Society VP","Pack Leader"]],
+   ["Verilog / digital logic",["Saint Mary’s coursework"]]];
+  $("#bars").innerHTML=SIG.map(([k,src])=>{const n=src.length,f=Math.round(n/4*12);return `<div class="bar"><span>${esc(k)}</span><span class="meter">${"█".repeat(f)}<i>${"░".repeat(12-f)}</i></span><span class="src">${n} · ${esc(src.join(", "))}</span></div>`}).join("");
+})();
+
+/* ================= LOGS ================= */
+(function logs(){
+  const F=[["all","All"],["tech","Technical"],["proj","Projects"],["lead","Leadership"],["work","Work"]];
+  let f="all";
+  const draw=()=>{
+    $("#logfilter").innerHTML=F.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${f===k}">${l}</button>`).join("");
+    $$("#logfilter button").forEach(b=>b.onclick=()=>{f=b.dataset.f;draw()});
+    const items=[...ROLES.map(r=>({...r,cat:r.kind==="aff"?"lead":r.kind})),...PROJECTS.map(p=>({...p,cat:"proj",skills:[]}))].filter(x=>f==="all"||x.cat===f);
+    $("#logcards").innerHTML=items.map(x=>`<article class="box card"><span class="lbl">${x.ref} · ${esc(x.dates)}</span><h3>${esc(x.title)}</h3><div class="org">${esc(x.org)}</div><ul>${x.b.map(b=>`<li>${esc(b[1])}</li>`).join("")}</ul>${x.skills.length?`<div class="chips">${x.skills.map(s=>`<span class="chip">${esc(s)}</span>`).join("")}</div>`:""}</article>`).join("");
+  };
+  draw();
+  $("#edu").innerHTML=EDU.map(e=>`<div style="margin-bottom:12px"><h3>${esc(e.s)}</h3><div class="amb" style="font-size:13px">${esc(e.d)}</div><div class="dim" style="font-size:12.5px">${esc(e.t)}</div><div style="font-size:13px">${esc(e.n)}</div></div>`).join("");
+  $("#certs").innerHTML=CERTS.map(c=>`<div style="margin-bottom:10px"><b>${esc(c[0])}</b><div class="dim" style="font-size:12.5px">${esc(c[1])}</div></div>`).join("")+`<div class="dim" style="font-size:12.5px">Tools: CLion (JetBrains) for C/C++ development</div>`;
+})();
+
+/* ================= RESUME ================= */
+let RS=store.get("resume",{}); let CONTACT=store.get("contact",{email:"",phone:""});
+let curT=store.get("target","emb"); if(!TARGETS[curT]) curT="emb";
+let JD={text:store.get("jd",SAMPLE_JD),matched:[],on:true};
+const saveRS=(()=>{let to;return()=>{clearTimeout(to);to=setTimeout(()=>{store.set("resume",RS);store.set("contact",CONTACT)},250)}})();
+const ST=t=>(RS[t]||(RS[t]={b:{},extra:{},summary:null,headline:null}));
+function bScore(text,tags,t){const w=TARGETS[t].w;let s=tags.split(" ").reduce((a,g)=>a+(w[g]||0),0);
+  if(JD.on&&JD.matched.length){for(const k of JD.matched){if(k.have&&k.re.test(text)) s+=1.5}} return Math.round(s*10)/10}
+function rankList(list,t,isTech,roleId){
+  const st=ST(t);
+  const sc=list.map(([id,text,tags])=>({id,text:(st.b[id]&&st.b[id].text!=null)?st.b[id].text:text,tags,score:bScore(text,tags,t)})).sort((a,b)=>b.score-a.score);
+  sc.forEach((x,i)=>{const o=st.b[x.id];x.def=isTech?(i<4&&x.score>=2):(i===0&&TARGETS[t].lead.includes(roleId));x.on=o&&o.on!=null?o.on:x.def});
+  (st.extra[roleId]||[]).forEach(id=>{const o=st.b[id]||{};sc.push({id,text:o.text||"",tags:"",score:null,on:o.on!==false,custom:true})});
+  return sc;
+}
+function liHTML(x){return `<li class="${x.on?"on":"off"}" data-id="${x.id}" data-k="li"><button class="tg" title="${x.on?"Drop this bullet":"Include this bullet"}" aria-label="${x.on?"Drop":"Include"} bullet">${x.on?"✓":""}</button><span class="dot">•</span><span class="bt" contenteditable="true" spellcheck="true">${esc(x.text)}</span>${x.score!=null?`<span class="fit" title="Fit for this target">${x.score.toFixed(1)}</span>`:""}</li>`}
+function roleHTML(r,t,isTech){
+  const sc=rankList(r.b,t,isTech,r.id); const any=sc.some(x=>x.on);
+  return `<div class="ro ${any?"":"empty ghostrole"}" data-k="role"><div class="rt"><b data-k="rtitle">${esc(r.title)}</b><span class="d">${esc(r.dates)}</span></div><div class="rorg">${esc(r.org)}</div><ul>${sc.map(liHTML).join("")}</ul><button class="addb" data-role="${r.id}">+ add bullet</button></div>`;
+}
+function renderTargets(){
+  $("#targets").innerHTML=Object.entries(TARGETS).map(([k,T])=>`<button class="tgtbtn" data-t="${k}" aria-pressed="${k===curT}">${esc(T.name)}<small>${esc(T.headline.split("·")[1]||"")}</small></button>`).join("");
+  $$("#targets .tgtbtn").forEach(b=>b.onclick=()=>{curT=b.dataset.t;store.set("target",curT);renderTargets();renderResume()});
+}
+function renderResume(){
+  const T=TARGETS[curT], st=ST(curT), P=$("#paper");
+  const em=CONTACT.email||"your.email@example.com", ph=CONTACT.phone||"(902) 555-0000";
+  const techRoles=ROLES.filter(r=>r.kind==="tech"), others=ROLES.filter(r=>r.kind==="lead"||r.kind==="work");
+  const othersHTML=others.map(r=>roleHTML(r,curT,false)).join("");
+  const projHTML=PROJECTS.slice().sort((a,b)=>Math.max(...b.b.map(x=>bScore(x[1],x[2],curT)))-Math.max(...a.b.map(x=>bScore(x[1],x[2],curT)))).map(p=>roleHTML(p,curT,true)).join("");
+  P.innerHTML=`
+   <h1 data-k="h1">Moses Koshy</h1>
+   <div class="rh" contenteditable="true" data-f="headline" data-k="line">${esc(st.headline??T.headline)}</div>
+   <div class="rc" data-k="line">Halifax, NS · <span contenteditable="true" data-c="email" class="${CONTACT.email?"":"ph"}">${esc(em)}</span> · <span contenteditable="true" data-c="phone" class="${CONTACT.phone?"":"ph"}">${esc(ph)}</span> · linkedin.com/in/moses-koshy</div>
+   <div class="rs"><h4 data-k="sec">Summary</h4><p contenteditable="true" data-f="summary" data-k="line">${esc(st.summary??T.summary)}</p></div>
+   <div class="rs"><h4 data-k="sec">Education</h4>${EDU.map(e=>`<div class="ro" data-k="role"><div class="rt"><b data-k="rtitle">${esc(e.s)}</b><span class="d">${esc(e.t)}</span></div><div class="rorg">${esc(e.d)}${e.n.startsWith("GPA")?" · GPA 3.4":""}</div></div>`).join("")}</div>
+   <div class="rs skl"><h4 data-k="sec">Technical Skills</h4>${T.skills.map(k=>`<div data-k="line"><b>${SKILLGROUPS[k][0]}:</b> <span contenteditable="true" data-sk="${k}">${esc((st.sk&&st.sk[k])??SKILLGROUPS[k][1])}</span></div>`).join("")}</div>
+   <div class="rs"><h4 data-k="sec">Technical Experience</h4>${techRoles.map(r=>roleHTML(r,curT,true)).join("")}</div>
+   <div class="rs"><h4 data-k="sec">Projects</h4>${projHTML}</div>
+   <div class="rs ${/class="ro "/.test(othersHTML)?"":"empty"}"><h4 data-k="sec">Leadership &amp; Work</h4>${othersHTML}</div>
+   <div class="rs"><h4 data-k="sec">Certifications &amp; Memberships</h4><div data-k="line">WHMIS 2015 (Dalhousie University, 2026) · Student Member, Engineers Nova Scotia (2024–present)</div></div>`;
+  wireResume();
+}
+function wireResume(){
+  const P=$("#paper"), st=ST(curT);
+  $$(".tg",P).forEach(b=>b.onclick=()=>{const id=b.closest("li").dataset.id;const on=b.closest("li").classList.contains("on");(st.b[id]||(st.b[id]={})).on=!on;saveRS();renderResume()});
+  $$(".bt",P).forEach(s=>s.oninput=()=>{const id=s.closest("li").dataset.id;(st.b[id]||(st.b[id]={})).text=s.textContent;saveRS()});
+  $$("[data-f]",P).forEach(s=>s.oninput=()=>{st[s.dataset.f]=s.textContent;saveRS()});
+  $$("[data-sk]",P).forEach(s=>s.oninput=()=>{(st.sk||(st.sk={}))[s.dataset.sk]=s.textContent;saveRS()});
+  $$("[data-c]",P).forEach(s=>{s.onfocus=()=>{if(!CONTACT[s.dataset.c]){s.textContent="";s.classList.remove("ph")}};
+    s.oninput=()=>{CONTACT[s.dataset.c]=s.textContent.trim();saveRS()};s.onblur=()=>{if(!CONTACT[s.dataset.c]) renderResume()}});
+  $$(".addb",P).forEach(b=>b.onclick=()=>{const r=b.dataset.role;const id="c"+Date.now().toString(36);(st.extra[r]||(st.extra[r]=[])).push(id);
+    st.b[id]={on:true,text:"Start with a verb, say what you built, and add a number."};saveRS();renderResume();
+    const el=$(`li[data-id="${id}"] .bt`,P);if(el){el.focus();document.getSelection().selectAllChildren(el)}});
+}
+function paperText(){
+  const P=$("#paper"),out=[];
+  const hidden=el=>el.closest(".off,.empty");
+  P.querySelectorAll("h1,.rh,.rc,.rs>h4,.rs>p,.skl>div,.ro .rt,.ro .rorg,li.on .bt,.rs>div[data-k=line]").forEach(el=>{
+    if(hidden(el)) return; let t=el.textContent.replace(/\s+/g," ").trim();
+    if(el.matches("h4")) out.push("",t.toUpperCase()); else if(el.matches(".bt")) out.push("  • "+t); else if(el.matches(".rt")) out.push("",t.replace(/(\S)\s*(\w{3} \d{4}.*)$/,"$1 | $2")); else out.push(t)});
+  return out.join("\n").replace(/\n{3,}/g,"\n\n").trim();
+}
+function scanJD(){
+  JD.text=$("#jd").value; store.set("jd",JD.text); JD.on=$("#jdrank").checked;
+  JD.matched=KW.filter(k=>k.re.test(JD.text));
+  const have=JD.matched.filter(k=>k.have), miss=JD.matched.filter(k=>!k.have);
+  const cov=JD.matched.length?Math.round(have.length/JD.matched.length*100):0;
+  let best=null,bs=-1;
+  for(const t in TARGETS){let s=0;for(const r of [...ROLES,...PROJECTS])for(const [,txt,tags] of r.b){const m=have.filter(k=>k.re.test(txt)).length;if(m)s+=m*tags.split(" ").reduce((a,g)=>a+(TARGETS[t].w[g]||0),0)}if(s>bs){bs=s;best=t}}
+  $("#jdout").innerHTML=JD.matched.length?`
+    <div class="row"><span class="cov">${cov}%</span><span class="dim" style="font-size:12.5px">of the posting’s keywords are backed by your experience<br>(${have.length} matched, ${miss.length} gaps)</span></div>
+    <div><div class="dim" style="font-size:11.5px;margin-bottom:4px">YOU CAN CLAIM</div><div class="chips">${have.map(k=>`<span class="chip kwok">${esc(k.label)}</span>`).join("")}</div></div>
+    ${miss.length?`<div><div class="dim" style="font-size:11.5px;margin-bottom:4px">GAPS · CLICK FOR A PLAN</div><div class="chips">${miss.map(k=>`<button class="chip kwno" data-sk="${k.sk||""}">${esc(k.label)}${k.sk?" →":""}</button>`).join("")}</div></div>`:""}
+    <div style="font-size:12.5px">Best-fitting target: <button class="chip" id="usebest" data-t="${best}" aria-pressed="${best===curT}">${esc(TARGETS[best].name)}</button></div>`
+   :`<span class="dim" style="font-size:12.5px">No engineering keywords found yet. Paste the full posting text.</span>`;
+  $$("#jdout .kwno").forEach(b=>b.onclick=()=>{if(b.dataset.sk) jumpSkill(b.dataset.sk)});
+  const ub=$("#usebest"); if(ub) ub.onclick=()=>{curT=ub.dataset.t;store.set("target",curT);renderTargets();renderResume();scanJD()};
+  renderResume();
+}
+$("#jd").value=JD.text;
+$("#jdgo").onclick=scanJD; $("#jdrank").onchange=scanJD;
+$("#m-edit").onclick=()=>{$("#paper").className="paper edit";$("#m-edit").setAttribute("aria-pressed","true");$("#m-clean").setAttribute("aria-pressed","false")};
+$("#m-clean").onclick=()=>{$("#paper").className="paper clean";$("#m-clean").setAttribute("aria-pressed","true");$("#m-edit").setAttribute("aria-pressed","false")};
+$("#copytxt").onclick=()=>{const t=paperText();const done=m=>{$("#exmsg").textContent=m;setTimeout(()=>$("#exmsg").textContent="",3000)};
+  try{navigator.clipboard.writeText(t).then(()=>done("Copied. Paste it into Word or Google Docs."),()=>fallbackCopy(t,done))}catch(e){fallbackCopy(t,done)}};
+function fallbackCopy(t,done){const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}ta.remove();done(ok?"Copied.":"Copy was blocked. Switch to Clean view and select the page text by hand.")}
+try{if(window.self===window.top){$("#printbtn").hidden=false;$("#printbtn").onclick=()=>{$("#m-clean").click();setTimeout(()=>window.print(),50)}}}catch(e){}
+let resetArm=false;
+$("#resetbtn").onclick=()=>{const b=$("#resetbtn");if(!resetArm){resetArm=true;b.textContent="Click again to reset";b.classList.add("amber");setTimeout(()=>{resetArm=false;b.textContent="Reset this target";b.classList.remove("amber")},3000);return}
+  delete RS[curT];store.set("resume",RS);resetArm=false;b.textContent="Reset this target";b.classList.remove("amber");renderResume()};
+renderTargets(); JD.matched=KW.filter(k=>k.re.test(JD.text)); scanJD();
+
+/* ================= SIMS ================= */
+const GAMES={
+ reg:{t:"REG-LAB",s:"Combat Robotics · 3S LiPo → 3.3 V",fn:()=>gameReg},
+ flamingo:{t:"FLAMINGO",s:"Saint Mary’s · launcher timing",fn:()=>gameFlamingo},
+ wdt:{t:"WATCHDOG",s:"S3A Lab · motor-driver failsafe",fn:()=>gameWdt},
+ modbus:{t:"BUS SNIFFER",s:"RS-485 Modbus · soil sensor",fn:()=>gameModbus},
+ tour:{t:"STARGAZER",s:"Burke-Gaffney · explain it simply",fn:()=>gameTour}
+};
+let activeGame=null, gameStop=null;
+function stopGame(){if(gameStop){try{gameStop()}catch(e){}}gameStop=null;activeGame=null}
+function startGame(k){
+  if(!GAMES[k]) k="reg"; stopGame(); activeGame=k; store.set("lastGame",k);
+  $("#gmenu").innerHTML=Object.entries(GAMES).map(([id,g],i)=>`<button class="gbtn" data-g="${id}" aria-pressed="${id===k}"><b><span class="key">${i+1}›</span> ${g.t}</b><small>${esc(g.s)}</small></button>`).join("");
+  $$("#gmenu .gbtn").forEach(b=>b.onclick=()=>startGame(b.dataset.g));
+  const st=$("#gstage"); st.innerHTML=""; const host=document.createElement("div"); st.appendChild(host); gameStop=GAMES[k].fn()(host)||null;
+}
+
+/* ---- REG-LAB ---- */
+function gameReg(el){
+  const TOPO={
+   ldo:{name:"LDO · 1117-class · SOT-223",note:"1.1 V dropout, cheap and quiet",kind:"ldo",drop:1.1,abs:15,imax:1.0,th:90,iq:.005},
+   lowdo:{name:"LDO · low-dropout · SOT-23-5",note:"0.25 V dropout, tiny package",kind:"ldo",drop:.25,abs:6,imax:.5,th:220,iq:.0001},
+   buck:{name:"Buck · synchronous · 1 A",note:"about 90% efficient, switching ripple",kind:"buck",vmin:4.5,abs:17,imax:1.0,th:60},
+   combo:{name:"Buck → LDO post-regulator",note:"buck to 4.0 V, then LDO in SOT-223",kind:"combo",vmin:4.5,abs:17,imax:1.0,th:60}};
+  const M=[
+   {id:"m1",n:"M1 · Bench bring-up",vbat:12.6,sag:0,load:.08,txt:"Fresh 3S pack on the bench, motors unplugged, ESP32 idle at about 80 mA."},
+   {id:"m2",n:"M2 · Weapon spin-up",vbat:12.6,sag:4,load:.45,txt:"Full pack, Wi-Fi telemetry streaming (450 mA peaks). The weapon motor sags the pack by 4 V, then kicks back when it lets go."},
+   {id:"m3",n:"M3 · Tired pack, final round",vbat:9.9,sag:6,load:.7,txt:"Pack down to 3.3 V/cell, every sensor live (700 mA), and a 6 V sag while the drive and weapon fight for current."},
+   {id:"free",n:"FREE · Sandbox",vbat:11.1,sag:3,load:.3,txt:"Set the conditions yourself."}];
+  const done=store.get("regDone",{});
+  let p={m:"m1",topo:"ldo",cin:10,cout:22,tvs:false,vbat:12.6,sag:0,load:.08};
+  el.innerHTML=`<div class="box"><span class="lbl">reg-lab · telemetry power rail</span><div class="gwrap">
+   <p style="max-width:75ch">The combat-robot telemetry board needs a clean <b class="cy">3.3 V</b> rail from a <b class="amb">3S LiPo</b> (9.9–12.6 V) that motors keep dragging around. Pick the parts and the live scope shows whether the ESP32 rail survives each mission.</p>
+   <div class="chips" id="rm"></div><p class="dim" id="rmt" style="font-size:12.5px"></p>
+   <div class="g-split">
+    <div style="display:grid;gap:12px;min-width:0"><canvas class="sim" id="scope" aria-label="Oscilloscope view of input and output voltage"></canvas>
+      <div><div class="verdict" id="rv"></div><div class="checks" id="rc" style="margin-top:8px"></div><p class="dim" id="ri" style="font-size:12.5px;margin-top:8px"></p></div></div>
+    <div class="ctrls">
+      <div class="radio" id="rtopo"></div>
+      <div class="row"><label for="cin" class="dim" style="font-size:12.5px">Input bulk cap</label><select id="cin">${[10,47,220,470].map(v=>`<option value="${v}">${v} µF</option>`).join("")}</select>
+        <label for="cout" class="dim" style="font-size:12.5px">Output cap</label><select id="cout">${[10,22,47,100].map(v=>`<option value="${v}">${v} µF</option>`).join("")}</select></div>
+      <label style="font-size:12.5px"><input type="checkbox" id="tvs"> Add TVS diode on input (clamps kickback to 14 V)</label>
+      <div id="envs" class="ctrls">
+        <div class="ctrl"><label for="vbat">Pack voltage <output id="o-vbat"></output></label><input type="range" id="vbat" min="9.9" max="12.6" step="0.1"></div>
+        <div class="ctrl"><label for="sag">Motor sag <output id="o-sag"></output></label><input type="range" id="sag" min="0" max="7" step="0.5"></div>
+        <div class="ctrl"><label for="load">3.3 V load <output id="o-load"></output></label><input type="range" id="load" min="0.05" max="0.9" step="0.01"></div>
+      </div>
+    </div>
+   </div></div></div>`;
+  $("#rtopo",el).innerHTML=Object.entries(TOPO).map(([k,t])=>`<label><input type="radio" name="topo" value="${k}"><span>${esc(t.name)}<small>${esc(t.note)}</small></span></label>`).join("");
+  const drawM=()=>{$("#rm",el).innerHTML=M.map(m=>`<button class="chip" data-m="${m.id}" aria-pressed="${p.m===m.id}">${done[m.id]?"✓ ":""}${esc(m.n)}</button>`).join("");
+    $$("#rm .chip",el).forEach(b=>b.onclick=()=>{p.m=b.dataset.m;const m=M.find(x=>x.id===p.m);if(p.m!=="free"){p.vbat=m.vbat;p.sag=m.sag;p.load=m.load}sync();run()})};
+  function sync(){const m=M.find(x=>x.id===p.m);$("#rmt",el).textContent=m.txt;drawM();
+    $$("input[name=topo]",el).forEach(r=>r.checked=r.value===p.topo);$("#cin",el).value=p.cin;$("#cout",el).value=p.cout;$("#tvs",el).checked=p.tvs;
+    ["vbat","sag","load"].forEach(k=>{$("#"+k,el).value=p[k];$("#"+k,el).disabled=p.m!=="free"});$("#envs",el).style.opacity=p.m==="free"?1:.6}
+  function sim(){
+    const T=TOPO[p.topo],I=p.load,pout=3.3*I,etaB=.9-.15*Math.exp(-I/.1);
+    const vinMin=T.kind==="ldo"?3.3+T.drop:T.vmin, dip=p.sag*150/(p.cin+150), vmin=p.vbat-dip;
+    const spike=p.sag>0?(p.tvs?Math.min(p.vbat+p.sag*1.5,14):p.vbat+p.sag*1.5):p.vbat;
+    let loss,tj,rip;
+    if(T.kind==="ldo"){loss=(p.vbat-3.3)*I+p.vbat*T.iq;tj=40+loss*T.th;rip=6}
+    else if(T.kind==="buck"){loss=pout*(1/etaB-1);tj=40+loss*T.th;rip=1300/p.cout}
+    else{const lb=4*I*(1/etaB-1),ll=.7*I;loss=lb+ll;tj=40+Math.max(lb*60,ll*90);rip=4}
+    const checks=[
+     ["Abs-max input",spike<=T.abs,`${spike.toFixed(1)} V peak, part is rated ${T.abs} V`],
+     ["Headroom in sag",vmin>=vinMin,`${vmin.toFixed(2)} V minimum, needs ${vinMin.toFixed(1)} V`],
+     ["Junction temp",tj<=125,`${tj.toFixed(0)} °C at 40 °C ambient, limit 125 °C`],
+     ["Output ripple",rip<=30,`${rip.toFixed(0)} mV p-p, ESP32 ADC budget 30 mV`],
+     ["Current rating",I<=T.imax,`${(I*1000).toFixed(0)} mA of ${(T.imax*1000).toFixed(0)} mA`]];
+    return {T,vinMin,dip,vmin,spike,loss,tj,rip,checks,eff:pout/(pout+loss),ibat:(pout+loss)/p.vbat};
+  }
+  const cv=()=>$("#scope",el);
+  function draw(r){
+    const {ctx,w,h}=fit(cv(),250), T=r.T; ctx.clearRect(0,0,w,h);
+    const L=44,R=w-10,top1=14,bot1=h/2-14,top2=h/2+8,bot2=h-24, X=t=>L+(R-L)*t/10;
+    ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.font="11px IBM Plex Mono, monospace";
+    for(let i=0;i<=10;i++){ctx.beginPath();ctx.moveTo(X(i),top1);ctx.lineTo(X(i),bot2);ctx.stroke()}
+    [top1,bot1,top2,bot2].forEach(y=>{ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke()});
+    const Y1=v=>bot1-(bot1-top1)*v/20, Y2=v=>bot2-(bot2-top2)*(v-2.4)/1.4;
+    ctx.fillStyle=C.dim;ctx.fillText("VIN",6,top1+10);ctx.fillText("20V",6,top1+24);ctx.fillText("0V",6,bot1);
+    ctx.fillText("VOUT",6,top2+10);ctx.fillText("3.8",6,top2+24);ctx.fillText("2.4",6,bot2);ctx.fillText("0 ms",L,h-8);ctx.fillText("10 ms",R-36,h-8);
+    ctx.setLineDash([4,4]);ctx.strokeStyle=C.bad;ctx.beginPath();ctx.moveTo(L,Y1(T.abs));ctx.lineTo(R,Y1(T.abs));ctx.stroke();
+    ctx.fillStyle=C.bad;ctx.fillText(`abs max ${T.abs} V`,R-100,Y1(T.abs)-3);
+    ctx.strokeStyle=C.ok;[3.135,3.465].forEach(v=>{ctx.beginPath();ctx.moveTo(L,Y2(v));ctx.lineTo(R,Y2(v));ctx.stroke()});ctx.setLineDash([]);
+    const vin=t=>{if(p.sag<=0)return p.vbat;if(t>=3&&t<6){const a=Math.min(1,(t-3)/.15);return p.vbat-r.dip*a*Math.exp(-(t-3)/2.2)}if(t>=6)return p.vbat+(r.spike-p.vbat)*Math.exp(-(t-6)/.12);return p.vbat};
+    let dead=false,brown=null,thermal=r.tj>125;
+    ctx.lineWidth=1.6;ctx.strokeStyle=C.amber;ctx.beginPath();for(let x=0;x<=R-L;x++){const t=x/(R-L)*10;const y=Y1(Math.min(20,vin(t)));x?ctx.lineTo(L+x,y):ctx.moveTo(L+x,y)}ctx.stroke();
+    ctx.strokeStyle=C.cyan;ctx.beginPath();
+    for(let x=0;x<=R-L;x++){const t=x/(R-L)*10,vi=vin(t);if(vi>T.abs+.01)dead=true;
+      let v=3.3; if(vi<r.vinMin) v=Math.max(0,3.3-(r.vinMin-vi));
+      const rp=r.rip/1000/2; v+=T.kind==="buck"?rp*(((t*5)%1)*2-1):rp*(Math.random()*2-1);
+      if(thermal&&t>8) v=3.3*Math.max(0,1-(t-8)*4);
+      if(dead) v=0; if(v<3.135&&brown==null) brown=t;
+      const y=Y2(Math.max(2.4,Math.min(3.8,v)));x?ctx.lineTo(L+x,y):ctx.moveTo(L+x,y)}
+    ctx.stroke();
+    ctx.font="12px IBM Plex Mono, monospace";
+    if(dead){ctx.fillStyle=C.bad;ctx.fillText("✖ REGULATOR DESTROYED BY KICKBACK",L+8,top2+16)}
+    else if(thermal){ctx.fillStyle=C.bad;ctx.fillText(`✖ ${r.tj.toFixed(0)} °C: THERMAL SHUTDOWN`,L+8,top2+16)}
+    else if(brown!=null){ctx.fillStyle=C.bad;ctx.fillText(`✖ BROWNOUT at ${brown.toFixed(1)} ms: ESP32 resets`,L+8,top2+16)}
+    else {ctx.fillStyle=C.ok;ctx.fillText("✓ RAIL INSIDE 3.3 V ±5%",L+8,top2+16)}
+  }
+  function run(){
+    const r=sim(); draw(r); const pass=r.checks.every(c=>c[1]);
+    $("#rc",el).innerHTML=r.checks.map(([n,ok,v])=>`<div><span class="${ok?"ok":"bad"}">[${ok?"PASS":"FAIL"}]</span><span>${n}</span><span class="dim">${v}</span></div>`).join("");
+    $("#ri",el).textContent=`Efficiency ${(r.eff*100).toFixed(0)}% · ${(r.loss).toFixed(2)} W lost as heat · ${(r.ibat*1000).toFixed(0)} mA from the pack`;
+    const v=$("#rv",el);
+    if(pass&&p.m!=="free"){v.innerHTML=`<span class="ok">MISSION COMPLETE</span>`;if(!done[p.m]){done[p.m]=1;store.set("regDone",done);drawM()}}
+    else v.innerHTML=pass?`<span class="ok">ALL CHECKS PASS</span>`:`<span class="bad">RAIL FAILS ${r.checks.filter(c=>!c[1]).length} CHECK${r.checks.filter(c=>!c[1]).length>1?"S":""}</span>`;
+  }
+  el.addEventListener("input",e=>{const t=e.target;
+    if(t.name==="topo")p.topo=t.value; else if(t.id==="cin")p.cin=+t.value; else if(t.id==="cout")p.cout=+t.value; else if(t.id==="tvs")p.tvs=t.checked;
+    else if(["vbat","sag","load"].includes(t.id))p[t.id]=+t.value;
+    $("#o-vbat",el).textContent=p.vbat.toFixed(1)+" V";$("#o-sag",el).textContent=p.sag.toFixed(1)+" V";$("#o-load",el).textContent=Math.round(p.load*1000)+" mA";run()});
+  el.addEventListener("change",e=>{if(e.target.tagName==="SELECT")el.dispatchEvent(new Event("input"))});
+  sync();$("#o-vbat",el).textContent=p.vbat.toFixed(1)+" V";$("#o-sag",el).textContent=p.sag.toFixed(1)+" V";$("#o-load",el).textContent=Math.round(p.load*1000)+" mA";run();
+  const onR=()=>run(); addEventListener("resize",onR);
+  return ()=>removeEventListener("resize",onR);
+}
+
+/* ---- FLAMINGO ---- */
+function gameFlamingo(el){
+  let p={pwm:255,adv:1100,fire:400,rev:1100}, shots=[], cup=rnd(.9,2.4), anim=null, score=0, best=store.get("flaBest",0);
+  el.innerHTML=`<div class="box"><span class="lbl">flamingo · autonomous launcher</span><div class="gwrap">
+   <p style="max-width:75ch">The real robot ran one button-triggered sequence: <b class="cy">advance 1.1 s → fire 0.4 s → reverse 1.1 s</b>. Tune the timings to drop the ball in the cup, then reverse back into the start box for a bonus. Five shots per round, and the cup moves every shot.</p>
+   <div class="g-split"><div style="display:grid;gap:12px;min-width:0"><canvas class="sim" id="fc" aria-label="Launcher robot side view"></canvas>
+     <div class="row"><button class="btn amber" id="fgo">▶ Press the button</button><button class="btn ghost" id="fship">Load my real config</button><button class="btn ghost" id="fnew">New round</button>
+       <span>Shot <b class="cy" id="fn">0</b>/5 · Score <b class="cy" id="fs">0</b> · Best <b class="amb" id="fb">${best}</b></span></div>
+     <div class="log" id="flog" style="height:120px"></div></div>
+    <div class="ctrls">
+     <div class="ctrl"><label for="f-pwm">analogWrite(DRIVE) <output id="o-pwm"></output></label><input type="range" id="f-pwm" min="60" max="255" step="5"></div>
+     <div class="ctrl"><label for="f-adv">delay() advance <output id="o-adv"></output></label><input type="range" id="f-adv" min="0" max="2000" step="50"></div>
+     <div class="ctrl"><label for="f-fire">delay() fire <output id="o-fire"></output></label><input type="range" id="f-fire" min="100" max="800" step="25"></div>
+     <div class="ctrl"><label for="f-rev">delay() reverse <output id="o-rev"></output></label><input type="range" id="f-rev" min="0" max="2000" step="50"></div>
+     <pre class="code" id="fcode"></pre>
+    </div></div></div></div>`;
+  const speed=()=>p.pwm<80?0:.6*p.pwm/255, vLaunch=()=>1+5*p.fire/1000;
+  function upd(){["pwm","adv","fire","rev"].forEach(k=>{$("#f-"+k,el).value=p[k];$("#o-"+k,el).textContent=k==="pwm"?p.pwm:p[k]+" ms"});
+    $("#fcode",el).innerHTML=`<span class="c">// flamingo.ino (Arduino Uno + L298N)</span>
+<span class="f">void</span> loop() {
+  <span class="f">if</span> (digitalRead(BTN) == LOW) {
+    drive(FWD, <span class="n">${p.pwm}</span>);  delay(<span class="n">${p.adv}</span>);
+    drive(STOP, <span class="n">0</span>);   launch(<span class="n">255</span>);
+    delay(<span class="n">${p.fire}</span>);       launch(<span class="n">0</span>);
+    drive(REV, <span class="n">${p.pwm}</span>);  delay(<span class="n">${p.rev}</span>);
+    drive(STOP, <span class="n">0</span>);
+  }
+}`}
+  const log=(h)=>{const d=document.createElement("div");d.innerHTML=h;$("#flog",el).prepend(d)};
+  let state={x:0,arm:0,ball:null,phase:"idle"};
+  function draw(){
+    const {ctx,w,h}=fit($("#fc",el),250);ctx.clearRect(0,0,w,h);
+    const pad=24,gy=h-40,S=(w-2*pad)/3.2,X=m=>pad+(m+.2)*S,Y=m=>gy-m*S;
+    ctx.strokeStyle=C.line;ctx.fillStyle=C.dim;ctx.font="11px IBM Plex Mono, monospace";
+    for(let m=0;m<=3;m+=.5){ctx.beginPath();ctx.moveTo(X(m),gy);ctx.lineTo(X(m),gy+6);ctx.stroke();ctx.fillText(m.toFixed(1)+" m",X(m)-14,gy+20)}
+    ctx.strokeStyle=C.line2;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();
+    ctx.setLineDash([3,3]);ctx.strokeStyle=C.ok;ctx.strokeRect(X(-.1),gy-4,.2*S,4);ctx.setLineDash([]);ctx.fillStyle=C.ok;ctx.fillText("START",X(-.1),gy-8);
+    const cw=.12*S,ch=Math.max(16,.11*S);ctx.fillStyle=C.bad;ctx.beginPath();ctx.moveTo(X(cup)-cw/2,gy-ch);ctx.lineTo(X(cup)+cw/2,gy-ch);ctx.lineTo(X(cup)+cw*.38,gy);ctx.lineTo(X(cup)-cw*.38,gy);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.fillRect(X(cup)-cw/2,gy-ch,cw,3);
+    const rx=X(state.x),bw=.22*S,bh=Math.max(14,.09*S);
+    ctx.fillStyle=C.pink;ctx.fillRect(rx-bw/2,gy-bh-8,bw,bh);ctx.fillStyle=C.bg;ctx.font="bold 10px IBM Plex Mono, monospace";if(bw>40)ctx.fillText("FLAMINGO",rx-bw/2+3,gy-12);
+    ctx.fillStyle=C.fg;[-.3,.3].forEach(o=>{ctx.beginPath();ctx.arc(rx+o*bw,gy-5,5,0,7);ctx.fill()});
+    const a=-Math.PI/2+state.arm*Math.PI/4*-1, ax=rx+bw/2-4, ay=gy-bh-8;
+    ctx.strokeStyle=C.amber;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax+Math.cos(-Math.PI/4-state.arm*0)*0+Math.cos(a)*18,ay+Math.sin(a)*18);ctx.stroke();ctx.lineWidth=1;
+    if(state.ball){const b=state.ball;ctx.strokeStyle="rgba(255,255,255,.25)";ctx.beginPath();b.trail.forEach((q,i)=>i?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1])));ctx.stroke();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(X(b.x),Y(b.y),4,0,7);ctx.fill()}
+  }
+  function fireShot(){
+    if(anim||shots.length>=5) return; const sp=speed(),v=vLaunch(),adv=p.adv/1000,fire=p.fire/1000,rev=p.rev/1000;
+    const x1=sp*adv,vx=v*Math.SQRT1_2,vy=v*Math.SQRT1_2,h0=.15,g=9.81,TT=(vy+Math.sqrt(vy*vy+2*g*h0))/g,land=x1+.1+vx*TT,fin=x1-sp*rev;
+    state={x:0,arm:0,ball:null,phase:"run"};$("#fgo",el).disabled=true;const t0=performance.now(),end=adv+fire+Math.max(rev,TT)+.3;
+    const step=now=>{const t=(now-t0)/1000*(REDUCE?4:1);
+      if(t<adv)state.x=sp*t;else if(t<adv+fire){state.x=x1;state.arm=Math.min(1,(t-adv)/Math.max(.05,fire))}
+      else{state.arm=Math.max(0,1-(t-adv-fire)*4);const tr=Math.min(rev,t-adv-fire);state.x=x1-sp*tr;
+        const tb=Math.min(TT,t-adv-fire);if(!state.ball)state.ball={trail:[]};const bx=x1+.1+vx*tb,by=Math.max(0,h0+vy*tb-g*tb*tb/2);state.ball.x=bx;state.ball.y=by;state.ball.trail.push([bx,by])}
+      draw(); if(t<end){anim=requestAnimationFrame(step)}else{anim=null;finish(land,fin)}};
+    anim=requestAnimationFrame(step);
+  }
+  function finish(land,fin){
+    const d=land-cup;let pts=0,res;if(Math.abs(d)<=.06){pts=100;res='<span class="ok">CUP! +100</span>'}else if(Math.abs(d)<=.15){pts=25;res='<span class="amb">rim +25</span>'}else res='<span class="bad">miss</span>';
+    const home=Math.abs(fin)<=.08;if(home)pts+=20;score+=pts;shots.push(pts);
+    log(`#${shots.length} landed ${land.toFixed(2)} m · cup ${cup.toFixed(2)} m · Δ ${(d*100>0?"+":"")+(d*100).toFixed(0)} cm · ${res}${home?' · <span class="ok">home +20</span>':` · <span class="dim">ended ${fin.toFixed(2)} m from start</span>`}`);
+    $("#fn",el).textContent=shots.length;$("#fs",el).textContent=score;
+    if(shots.length>=5){if(score>best){best=score;store.set("flaBest",best);$("#fb",el).textContent=best}log(`<b class="cy">Round over: ${score} pts.</b> Press New round to go again.`);$("#fgo",el).disabled=true}
+    else{cup=rnd(.9,2.4);$("#fgo",el).disabled=false;state.ball=null;state.x=0;draw()}
+  }
+  el.addEventListener("input",e=>{const m=e.target.id.match(/^f-(\w+)/);if(m){p[m[1]]=+e.target.value;upd()}});
+  $("#fgo",el).onclick=fireShot;
+  $("#fship",el).onclick=()=>{p={pwm:255,adv:1100,fire:400,rev:1100};upd();log('<span class="dim">Loaded my real config: 1100 / 400 / 1100 ms at full PWM.</span>')};
+  $("#fnew",el).onclick=()=>{if(anim)cancelAnimationFrame(anim);anim=null;shots=[];score=0;cup=rnd(.9,2.4);state={x:0,arm:0,ball:null};$("#fn",el).textContent=0;$("#fs",el).textContent=0;$("#fgo",el).disabled=false;$("#flog",el).innerHTML="";draw()};
+  upd();draw();log('<span class="dim">Motor stalls below PWM 80. Launch speed grows with fire time. Ball leaves at 45°.</span>');
+  const onR=()=>draw();addEventListener("resize",onR);
+  return ()=>{if(anim)cancelAnimationFrame(anim);removeEventListener("resize",onR)};
+}
+
+/* ---- WATCHDOG ---- */
+function gameWdt(el){
+  const DUR=40000,TO=500;
+  let g=null,raf=null,best=store.get("wdtBest",null);
+  el.innerHTML=`<div class="box"><span class="lbl">watchdog · motor-driver failsafe</span><div class="gwrap">
+   <p style="max-width:78ch">You are the firmware. The Python test script streams wheel commands over USB serial. Call <b class="cy">kick()</b> (Space, or tap the button) after each <span class="ok">valid</span> packet to keep the 500 ms watchdog fed. Don't feed it on <span class="bad">CRC errors</span>. If the cable drops, <b class="amb">let it trip</b>: stopping the motors is the correct result.</p>
+   <div class="g-split"><div style="display:grid;gap:12px;min-width:0"><canvas class="sim" id="wc" aria-label="Top-down view of the robot"></canvas>
+     <div class="log" id="wlog"></div></div>
+    <div class="ctrls">
+     <div class="row" style="justify-content:space-between"><span>SCORE <span class="big" id="wsc">0</span></span><span>TIME <span class="big" id="wt">40</span></span></div>
+     <div><div class="row" style="justify-content:space-between;font-size:12px"><span>WDT</span><span id="wst" class="ok">ARMED</span></div><div class="wdtbar"><i id="wbar"></i></div></div>
+     <div class="row" style="font-size:12px"><span>RX</span><span id="rx" style="width:10px;height:10px;border-radius:50%;background:${C.line2};display:inline-block"></span><span class="dim" id="link">link up</span></div>
+     <button class="btn kick" id="wk">kick()</button>
+     <button class="btn amber" id="wgo">▶ Start 40 s test run</button>
+     <p class="dim" style="font-size:12px">+10 correct feed · +25 correct failsafe trip · −15 feeding without a valid packet · −10 nuisance trip while the link was healthy${best!=null?` · best ${best}`:""}</p>
+    </div></div></div></div>`;
+  const log=(h)=>{const d=document.createElement("div");d.innerHTML=h;const L=$("#wlog",el);L.prepend(d);while(L.children.length>60)L.lastChild.remove()};
+  function reset(){g={t:0,score:0,wdt:TO,motors:true,fresh:false,link:true,next:300,unplugAt:rnd(6000,9000),plugAt:0,cmd:{L:.3,R:.3},x:1.5,y:1,th:0,trail:[],wp:{x:rnd(.4,2.6),y:rnd(.4,1.6)},rxFlash:0,running:true,last:performance.now()};$("#wlog",el).innerHTML=""}
+  function feed(){if(!g||!g.running)return;
+    if(g.fresh&&g.link){g.score+=10;g.wdt=TO;g.fresh=false;if(!g.motors)log('<span class="cy">re-armed: motors enabled</span>');g.motors=true}
+    else{g.score-=15;if(g.motors)g.wdt=TO;log(g.link?'<span class="bad">✗ kick() without a fresh valid packet (−15)</span>':'<span class="bad">✗ fed the dog with the cable unplugged: robot driving blind (−15)</span>')}}
+  function packet(){const bad=Math.random()<.18;g.rxFlash=120;
+    if(bad){g.fresh=false;log(`<span class="bad">&lt;&lt; 0x${ri(0,65535).toString(16).padStart(4,"0")} CRC ERROR, frame dropped</span>`)}
+    else{const dx=g.wp.x-g.x,dy=g.wp.y-g.y;if(Math.hypot(dx,dy)<.2)g.wp={x:rnd(.4,2.6),y:rnd(.4,1.6)};
+      let err=Math.atan2(dy,dx)-g.th;err=Math.atan2(Math.sin(err),Math.cos(err));const base=.35,k=.25;
+      g.cmd={L:+(base-k*err).toFixed(2),R:+(base+k*err).toFixed(2)};g.fresh=true;
+      log(`<span class="dim">&lt;&lt;</span> CMD L=${g.cmd.L>=0?"+":""}${g.cmd.L.toFixed(2)} R=${g.cmd.R>=0?"+":""}${g.cmd.R.toFixed(2)} <span class="ok">crc ok</span>`)}}
+  function step(now){
+    const dt=Math.min(50,now-g.last);g.last=now;g.t+=dt;
+    if(g.link&&g.t>=g.unplugAt){g.link=false;g.plugAt=g.t+rnd(1800,2600);}
+    if(!g.link&&g.t>=g.plugAt){g.link=true;g.unplugAt=g.t+rnd(5000,9000);g.next=g.t+150;log('<span class="cy">-- usb link restored --</span>')}
+    if(g.link&&g.t>=g.next){packet();g.next=g.t+rnd(300,450)}
+    if(g.motors){g.wdt-=dt;if(g.wdt<=0){g.motors=false;g.fresh=false;
+      if(!g.link){g.score+=25;log('<span class="ok">✓ WATCHDOG TRIP: link lost, motors stopped (+25)</span>')}else{g.score-=10;log('<span class="amb">! nuisance trip: valid packets were arriving (−10)</span>')}}}
+    if(g.motors){const v=(g.cmd.L+g.cmd.R)/2,om=(g.cmd.R-g.cmd.L)/.25;g.th+=om*dt/1000;g.x+=v*Math.cos(g.th)*dt/1000;g.y+=v*Math.sin(g.th)*dt/1000;
+      if(g.x<.15||g.x>2.85||g.y<.15||g.y>1.85){g.x=Math.max(.15,Math.min(2.85,g.x));g.y=Math.max(.15,Math.min(1.85,g.y));g.th+=Math.PI*.6}
+      g.trail.push([g.x,g.y]);if(g.trail.length>400)g.trail.shift()}
+    g.rxFlash-=dt;
+    render();
+    if(g.t>=DUR){g.running=false;if(best==null||g.score>best){best=g.score;store.set("wdtBest",best)}log(`<b class="cy">Test run complete: ${g.score} pts.</b>`);$("#wgo",el).disabled=false;$("#wgo",el).textContent="▶ Run again";return}
+    raf=requestAnimationFrame(step);
+  }
+  function render(){
+    const {ctx,w,h}=fit($("#wc",el),260);ctx.clearRect(0,0,w,h);const S=Math.min((w-20)/3,(h-20)/2),ox=(w-3*S)/2,oy=(h-2*S)/2,X=m=>ox+m*S,Y=m=>oy+m*S;
+    ctx.strokeStyle=C.line;for(let i=0;i<=6;i++){ctx.beginPath();ctx.moveTo(X(i*.5),Y(0));ctx.lineTo(X(i*.5),Y(2));ctx.stroke()}for(let j=0;j<=4;j++){ctx.beginPath();ctx.moveTo(X(0),Y(j*.5));ctx.lineTo(X(3),Y(j*.5));ctx.stroke()}
+    ctx.strokeStyle=C.line2;ctx.strokeRect(X(0),Y(0),3*S,2*S);
+    if(!g)return;
+    ctx.strokeStyle="rgba(92,232,242,.35)";ctx.beginPath();g.trail.forEach((q,i)=>i?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1])));ctx.stroke();
+    ctx.strokeStyle=C.dim;ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(X(g.wp.x),Y(g.wp.y),6,0,7);ctx.stroke();ctx.setLineDash([]);
+    ctx.save();ctx.translate(X(g.x),Y(g.y));ctx.rotate(g.th);const r=.12*S;
+    ctx.fillStyle=g.motors?C.cyan:C.amber;ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();ctx.fillStyle=C.bg;ctx.fillRect(-r*.5,-r-3,r,4);ctx.fillRect(-r*.5,r-1,r,4);
+    ctx.strokeStyle=C.bg;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(r,0);ctx.stroke();ctx.restore();ctx.lineWidth=1;
+    ctx.font="11px IBM Plex Mono, monospace";ctx.fillStyle=g.motors?C.ok:C.amber;ctx.fillText(g.motors?"MOTORS ENABLED":"MOTORS STOPPED",X(0)+6,Y(0)+14);
+    $("#wsc",el).textContent=g.score;$("#wt",el).textContent=Math.max(0,Math.ceil((DUR-g.t)/1000));
+    const f=Math.max(0,g.wdt/TO);const bar=$("#wbar",el);bar.style.width=(g.motors?f*100:0)+"%";bar.style.background=f<.35?C.bad:f<.6?C.amber:C.ok;
+    $("#wst",el).textContent=g.motors?"ARMED":"TRIPPED";$("#wst",el).className=g.motors?"ok":"amb";
+    $("#rx",el).style.background=g.rxFlash>0?C.ok:C.line2;$("#link",el).textContent=g.link?"link up":"no packets…";
+  }
+  $("#wgo",el).onclick=()=>{reset();$("#wgo",el).disabled=true;log('<span class="cy">-- python test_motion.py --port /dev/ttyUSB0 --</span>');raf=requestAnimationFrame(t=>{g.last=t;step(t)})};
+  $("#wk",el).onclick=feed;
+  const onK=e=>{if(e.code==="Space"&&!typing()&&curView==="sims"){e.preventDefault();feed()}};addEventListener("keydown",onK);
+  const onR=()=>render();addEventListener("resize",onR);render();
+  return ()=>{if(raf)cancelAnimationFrame(raf);removeEventListener("keydown",onK);removeEventListener("resize",onR)};
+}
+
+/* ---- BUS SNIFFER (Modbus RTU) ---- */
+function crc16(b){let c=0xFFFF;for(const x of b){c^=x;for(let i=0;i<8;i++)c=(c&1)?(c>>>1)^0xA001:c>>>1}return [c&255,c>>8]}
+function gameModbus(el){
+  const REG=[["Moisture","%",.1],["Temperature","°C",.1],["Conductivity","µS/cm",1],["pH","",.1],["Nitrogen","mg/kg",1],["Phosphorus","mg/kg",1],["Potassium","mg/kg",1]];
+  let n=0,score=0,hint=false,q=null;const best=store.get("mbBest",null);
+  el.innerHTML=`<div class="box"><span class="lbl">bus sniffer · rs-485 modbus rtu</span><div class="gwrap">
+   <p style="max-width:78ch">The soil project and the S3A monitoring node both read an RS-485 sensor over Modbus RTU. Ten frames come off the bus. Decode them, catch the corrupted ones, and build the right request.</p>
+   <div class="g-split"><div style="min-width:0"><div class="row" style="justify-content:space-between"><span>FRAME <b class="cy" id="mn">1</b>/10</span><span>SCORE <b class="cy" id="ms">0</b>${best!=null?` <span class="dim">· best ${best}</span>`:""}</span></div>
+     <div id="mq" style="margin-top:10px"></div></div>
+    <div class="ctrls"><label style="font-size:12.5px"><input type="checkbox" id="mh"> Color-code frame fields</label>
+     <div class="tablewrap"><table><thead><tr><th>Reg</th><th>Field (typical 7-in-1 map)</th><th>Scale</th></tr></thead><tbody>${REG.map((r,i)=>`<tr><td class="amb">0x000${i}</td><td>${r[0]}${r[1]?" ("+r[1]+")":""}</td><td>${r[2]===1?"×1":"÷10"}</td></tr>`).join("")}</tbody></table></div>
+     <pre class="code"><span class="c">// RTU frame</span>
+[addr][func][data…][crc lo][crc hi]
+<span class="c">// 0x03 = read holding registers</span>
+<span class="c">// CRC-16/MODBUS, poly 0xA001</span></pre></div></div></div></div>`;
+  const hex=v=>v.toString(16).toUpperCase().padStart(2,"0");
+  const frameHTML=(bytes,labels)=>`<div class="hex ${hint?"hint":""}">${bytes.map((b,i)=>`<span class="${labels[i][0]}">${hex(b)}<small>${labels[i][1]}</small></span>`).join("")}</div>`;
+  function make(){
+    const type=pick(["decode","decode","decode","crc","crc","build"]),addr=ri(1,9);
+    if(type==="decode"){
+      const raw=[ri(300,650),ri(80,260),ri(150,1800),ri(55,78),ri(20,120),ri(10,60),ri(40,220)];
+      const f=ri(0,4),body=[addr,3,14];raw.forEach(v=>body.push(v>>8,v&255));const fr=[...body,...crc16(body)];
+      const fmt=(v,i)=>(REG[i][2]===1?String(v):(v/10).toFixed(1))+(REG[i][1]?" "+REG[i][1]:"");
+      const right=fmt(raw[f],f),swap=((raw[f]&255)<<8)|(raw[f]>>8);
+      const opts=[...new Set([right,fmt(raw[(f+1)%7],f),fmt(swap,f),REG[f][2]===1?(raw[f]/10).toFixed(1)+(REG[f][1]?" "+REG[f][1]:""):raw[f]+(REG[f][1]?" "+REG[f][1]:"")])].slice(0,4);
+      const labels=fr.map((_,i)=>i===0?["f-a","ADDR"]:i===1?["f-f","FUNC"]:i===2?["f-n","BYTES"]:i<17?["f-d","R"+Math.floor((i-3)/2)+(i%2?"hi":"lo")]:["f-c","CRC"]);
+      return {html:`<p>Slave <b class="amb">${addr}</b> answered a read of registers 0x0000–0x0006:</p>${frameHTML(fr,labels)}<p><b>What is the ${REG[f][0].toLowerCase()}?</b></p>`,
+        opts:shuffle(opts).map(o=>[o,o===right]),why:`Register ${f} is bytes ${3+2*f}–${4+2*f}: 0x${hex(raw[f]>>8)}${hex(raw[f]&255)} = ${raw[f]}${REG[f][2]===1?"":" → ÷10"} = ${right}. Modbus is big-endian: high byte first.`};
+    }
+    if(type==="crc"){
+      const qty=ri(1,7),start=ri(0,7-qty),body=[addr,3,0,start,0,qty];let fr=[...body,...crc16(body)];const bad=Math.random()<.5;let flipped=-1;
+      if(bad){flipped=ri(0,7);fr[flipped]^=1<<ri(0,7)}
+      const calc=crc16(fr.slice(0,6)),ok=calc[0]===fr[6]&&calc[1]===fr[7];
+      const labels=fr.map((_,i)=>i===0?["f-a","ADDR"]:i===1?["f-f","FUNC"]:i<4?["f-d","START"]:i<6?["f-d","QTY"]:["f-c","CRC"]);
+      return {html:`<p>A request frame arrives at the sensor:</p>${frameHTML(fr,labels)}<p><b>Should the sensor accept it?</b></p>`,
+        opts:[["ACCEPT: CRC checks out",ok],["REJECT: CRC mismatch",!ok]],why:`CRC over the first 6 bytes = ${hex(calc[0])} ${hex(calc[1])}; frame carries ${hex(fr[6])} ${hex(fr[7])}.${ok?" They match.":" A single flipped bit"+(flipped>=0?` (byte ${flipped})`:"")+" breaks it, which is why noisy RS-485 lines need the CRC."}`};
+    }
+    const f=ri(0,5),qty=ri(1,7-f);const mk=(a,fn,s,qn)=>{const b=[a,fn,0,s,0,qn];return [...b,...crc16(b)]};
+    const right=mk(addr,3,f,qty),c=[[right,true],[mk(addr,6,f,qty),false],[mk(addr===9?1:addr+1,3,f,qty),false],[mk(addr,3,f,qty===1?2:qty-1),false]];
+    return {html:`<p><b>Build the request:</b> read <b class="amb">${qty}</b> register${qty>1?"s":""} starting at <b class="amb">0x000${f}</b> (${REG[f][0].toLowerCase()}) from slave <b class="amb">${addr}</b>.</p>`,
+      opts:shuffle(c).map(([b,ok])=>[b.map(hex).join(" "),ok]),why:`Correct frame: ${right.map(hex).join(" ")}. Address, then 0x03 (read holding registers; 0x06 writes a register), start ${hex(0)} ${hex(f)}, quantity ${hex(0)} ${hex(qty)}, then the CRC low byte first.`};
+  }
+  function render(){
+    $("#mn",el).textContent=Math.min(10,n+1);$("#ms",el).textContent=score;
+    if(n>=10){const nb=best==null||score>best;if(nb)store.set("mbBest",score);
+      $("#mq",el).innerHTML=`<div class="verdict ${score>=80?"ok":"amb"}">${score>=80?"BUS CLEAN":"KEEP SNIFFING"} · ${score}/100</div><p style="margin:8px 0 12px">${score>=80?"You'd debug this sensor without a protocol analyzer.":"Turn on the color coding and try again."}</p><button class="btn" id="mre">Sniff again</button>`;
+      $("#mre",el).onclick=()=>{n=0;score=0;q=make();render()};return}
+    $("#mq",el).innerHTML=q.html+`<div class="opts">${q.opts.map((o,i)=>`<button class="opt" data-i="${i}">${esc(o[0])}</button>`).join("")}</div><p id="mw" style="margin-top:10px;font-size:12.5px"></p>`;
+    $$("#mq .opt",el).forEach(b=>b.onclick=()=>{const i=+b.dataset.i,ok=q.opts[i][1];if(ok)score+=10;
+      $$("#mq .opt",el).forEach((x,j)=>{x.disabled=true;if(q.opts[j][1])x.classList.add("right");else if(j===i)x.classList.add("wrong")});
+      $("#mw",el).innerHTML=`<span class="${ok?"ok":"bad"}">${ok?"✓ correct":"✗ not quite"}</span> <span class="dim">${esc(q.why)}</span><br><button class="btn" id="mnext" style="margin-top:10px">Next frame →</button>`;
+      $("#ms",el).textContent=score;$("#mnext",el).onclick=()=>{n++;q=make();render()};$("#mnext",el).focus()});
+  }
+  $("#mh",el).onchange=e=>{hint=e.target.checked;$$(".hex",el).forEach(h=>h.classList.toggle("hint",hint))};
+  q=make();render();
+  return null;
+}
+
+/* ---- STARGAZER (observatory tour) ---- */
+function gameTour(el){
+  const Q=[
+   ["Aperture",[["The width of the telescope’s main mirror. A bigger mirror catches more light, like a bigger bucket in the rain.",2],["The clear diameter of the objective, which sets light-gathering power and diffraction-limited resolution.",1],["How far the telescope can zoom in.",0]]],
+   ["Light-year",[["A distance, not a time: how far light travels in a year, about 9.5 trillion km.",2],["≈ 9.46 × 10¹⁵ m, the distance light covers in one Julian year in vacuum.",1],["A unit of time for very long periods.",0]]],
+   ["Redshift",[["Light from things moving away gets stretched toward red, like a siren dropping in pitch as it drives off.",2],["A fractional increase in observed wavelength, z = Δλ/λ, from Doppler motion or cosmological expansion.",1],["Stars slowly turn red as they cool during the night.",0]]],
+   ["Seeing",[["How much the air above us is shimmering tonight. Turbulent air makes stars twinkle and blurs the view.",2],["Atmospheric turbulence measured as the FWHM of a point-source image, in arcseconds.",1],["How dark the sky is, away from city lights.",0]]],
+   ["Focal length",[["The distance the telescope needs to bring light to a sharp point. Longer means more magnification with the same eyepiece.",2],["Distance from the principal plane to the focal point; magnification = f(objective) / f(eyepiece).",1],["How far away the object you are focusing on is.",0]]],
+   ["Equatorial mount",[["A mount tilted to match Earth’s axis, so turning just one knob follows a star across the sky.",2],["A mount with its polar axis aligned to the celestial pole, enabling single-axis sidereal tracking.",1],["A mount that only works near the equator.",0]]],
+   ["Parallax",[["Hold up a thumb and blink each eye: it jumps. We do the same with Earth’s orbit to measure distances to nearby stars.",2],["The apparent angular shift of a star across Earth’s orbital baseline; d (pc) = 1 / p (arcsec).",1],["The way a lens bends light.",0]]],
+   ["Spectroscopy",[["Splitting starlight into a rainbow. The dark lines in it tell us what the star is made of.",2],["Dispersing electromagnetic radiation by wavelength to identify absorption and emission lines.",1],["Taking a very zoomed-in photo of a star’s surface.",0]]]];
+  let order=shuffle(Q).slice(0,6),i=0,eng=50,pts=0,raf=null,stars=[];
+  el.innerHTML=`<div class="box"><span class="lbl">stargazer · burke-gaffney observatory</span><div class="gwrap">
+   <p style="max-width:78ch">A tour group of first-time visitors is at the 0.6 m telescope. Someone asks a question. Pick the answer that is <b class="cy">correct and easy to follow</b>. Jargon keeps you accurate but loses the room.</p>
+   <div class="g-split"><div style="min-width:0" id="tq"></div>
+    <div class="ctrls"><canvas class="sim" id="tsky" aria-hidden="true"></canvas>
+     <div><div class="row" style="justify-content:space-between;font-size:12px"><span>GROUP ENGAGEMENT</span><span id="te" class="cy">50%</span></div><div class="wdtbar"><i id="tbar" style="width:50%"></i></div></div>
+     <p class="dim" style="font-size:12px">Plain and correct +15 · correct but jargon −5 · wrong −20</p></div></div></div></div>`;
+  function sky(){const {ctx,w,h}=fit($("#tsky",el),150);if(!stars.length)stars=Array.from({length:90},()=>[Math.random(),Math.random(),Math.random()*1.4+.3,Math.random()*6]);
+    ctx.fillStyle="#020509";ctx.fillRect(0,0,w,h);const t=performance.now()/1000;stars.forEach(([x,y,r,ph])=>{ctx.globalAlpha=.4+.6*Math.abs(Math.sin(t*(eng/60)+ph));ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x*w,y*h,r,0,7);ctx.fill()});ctx.globalAlpha=1;
+    ctx.fillStyle=C.dim;ctx.beginPath();ctx.moveTo(w*.42,h);ctx.lineTo(w*.5,h*.62);ctx.lineTo(w*.58,h);ctx.fill();ctx.strokeStyle=C.dim;ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(w*.5,h*.66);ctx.lineTo(w*.7,h*.3);ctx.stroke();ctx.lineWidth=1;
+    if(!REDUCE)raf=requestAnimationFrame(sky)}
+  function upd(){$("#te",el).textContent=eng+"%";const b=$("#tbar",el);b.style.width=eng+"%";b.style.background=eng<35?C.bad:eng<60?C.amber:C.ok}
+  function render(){
+    if(i>=order.length){const st=Math.max(1,Math.min(5,Math.round(eng/20)));
+      $("#tq",el).innerHTML=`<div class="verdict ${eng>=70?"ok":"amb"}">TOUR COMPLETE</div><p style="font-size:22px;color:${C.amber};margin:6px 0">${"★".repeat(st)}${"☆".repeat(5-st)}</p><p>${eng>=70?"The group left asking when the next clear night is.":"Accurate, but a few people drifted toward the gift shop."}</p><button class="btn" id="tre" style="margin-top:12px">Take a new group</button>`;
+      $("#tre",el).onclick=()=>{order=shuffle(Q).slice(0,6);i=0;eng=50;upd();render()};return}
+    const [term,opts]=order[i];const so=shuffle(opts);
+    $("#tq",el).innerHTML=`<div class="dim" style="font-size:12px">QUESTION ${i+1}/${order.length}</div><h3 style="margin:6px 0 4px">“What does <span class="cy">${esc(term.toLowerCase())}</span> mean?”</h3><div class="opts">${so.map((o,j)=>`<button class="opt" data-j="${j}">${esc(o[0])}</button>`).join("")}</div><p id="tw" style="margin-top:10px;font-size:12.5px"></p>`;
+    $$("#tq .opt",el).forEach(b=>b.onclick=()=>{const s=so[+b.dataset.j][1];eng=Math.max(0,Math.min(100,eng+(s===2?15:s===1?-5:-20)));upd();
+      $$("#tq .opt",el).forEach((x,k)=>{x.disabled=true;const v=so[k][1];x.classList.add(v===2?"right":v===1?"meh":"wrong")});
+      $("#tw",el).innerHTML=`<span class="${s===2?"ok":s===1?"amb":"bad"}">${s===2?"The group nods along.":s===1?"Correct, but you lost the back row.":"That’s not right, and a physics student in the group noticed."}</span><br><button class="btn" id="tn" style="margin-top:10px">Next question →</button>`;
+      $("#tn",el).onclick=()=>{i++;render()};$("#tn",el).focus()});
+  }
+  render();upd();sky();
+  return ()=>{if(raf)cancelAnimationFrame(raf)};
+}
+
+/* ================= JARVIS ================= */
+const PATHS={all:"All vectors",emb:"Embedded",pcb:"Hardware / PCB",rob:"Robotics",pwr:"Power & Energy"};
+const JS=[
+ {id:"spice",n:"LTspice simulation",p:["pcb","pwr"],pri:"P1",tag:"USE THIS WEEK",why:"You're picking a 3.3 V regulator for a 3S LiPo right now. Simulating ripple and the motor-transient dip before ordering parts is how hardware teams de-risk a board, and it's the REG-LAB sim done properly.",go:"Model pack sag, regulator and bulk caps, then sweep the load from 50 to 700 mA.",res:"Analog Devices LTspice (free), with its built-in regulator models"},
+ {id:"git",n:"Git + CI for firmware",p:["emb","pcb","rob","pwr"],pri:"P1",why:"Version control is missing from your profile, and nearly every engineering team uses it. A public GitHub with your KiCad projects and firmware is also your strongest portfolio piece.",go:"Put the telemetry PCB and firmware in a repo, then add a PlatformIO build check on every push.",res:"PlatformIO + GitHub Actions"},
+ {id:"i2c",n:"I²C + logic-analyzer debugging",p:["emb","pcb","rob"],pri:"P1",why:"I²C appears in almost every sensor posting and isn't on your profile yet. A cheap logic analyzer with PulseView shows you SPI, UART, I²C and Modbus traffic directly, so you stop guessing.",go:"Add an I²C IMU to the telemetry board and decode its traffic in PulseView.",res:"sigrok / PulseView (free, open source)"},
+ {id:"rtos",n:"FreeRTOS on ESP32 (ESP-IDF)",p:["emb","rob"],pri:"P1",tag:"NEXT STEP",why:"Your telemetry board already uses an ESP32, and ESP-IDF is built on FreeRTOS. Moving from Arduino loops to tasks, queues and timers is the jump from hobby firmware to production firmware.",go:"Port the telemetry firmware to ESP-IDF with one task per sensor feeding a queue into a logging task.",res:"Shawn Hymel’s “Introduction to RTOS” series (Digi-Key, YouTube)"},
+ {id:"stm32",n:"STM32 & ARM Cortex-M",p:["emb","pcb"],pri:"P1",why:"Most embedded co-op postings name ARM Cortex-M parts. You know AVR from the ATmega328P. STM32 adds DMA, advanced timers and clock trees, which employers ask about.",go:"Get a Nucleo board and work up: blink → UART → SPI → DMA in STM32CubeIDE.",res:"Phil’s Lab (YouTube): STM32 + KiCad hardware design"},
+ {id:"4layer",n:"4-layer PCB & power integrity",p:["pcb"],pri:"P2",why:"Your boards so far are 2-layer. A solid ground plane, a deliberate stack-up and a decoupling strategy are what get a board through an arena full of motor noise.",go:"Re-spin the telemetry board as 4-layer (signal / GND / power / signal) in KiCad and compare noise.",res:"Robert Feranec (YouTube); “The Art of Electronics”, Horowitz & Hill"},
+ {id:"can",n:"CAN bus",p:["emb","rob","pwr"],pri:"P2",why:"You already know differential signalling from RS-485. CAN works the same way but adds arbitration, and it's the standard bus in vehicles, robots and battery packs.",go:"Connect two ESP32s through their TWAI (CAN) controllers with transceivers and send telemetry frames.",res:"ESP-IDF TWAI driver documentation"},
+ {id:"pytest",n:"Automated hardware testing",p:["emb","pwr","pcb"],pri:"P2",why:"You already validate motion with Python scripts over USB serial. Making them a pytest suite with pass/fail reports is exactly what test-engineering co-ops look for.",go:"Rewrite your motor-driver checks as pytest cases using pyserial, plus a fake-serial fixture.",res:"pytest and pyserial documentation"},
+ {id:"bms",n:"Battery management & Li-ion safety",p:["pwr","rob"],pri:"P2",why:"Combat robots run 3S LiPo packs hard. Cell balancing, protection and fuel gauging carry over directly to EVs, drones and grid storage.",go:"Add a pack-voltage divider and an ADC channel to the telemetry board, then log the sag during matches.",res:"Battery University (batteryuniversity.com)"},
+ {id:"ros",n:"ROS 2",p:["rob"],pri:"P2",why:"You've brought up a Jetson TX2 and written motor firmware with steering kinematics. ROS 2 is the layer robotics companies use to connect those pieces.",go:"Wrap your differential-drive firmware as a ROS 2 node that publishes odometry.",res:"Official ROS 2 tutorials (docs.ros.org)"},
+ {id:"ipc",n:"IPC certification (CID / J-STD-001)",p:["pcb"],pri:"P2",why:"IPC CID certifies PCB designers, and J-STD-001 certifies soldering. Either one shows employers your boards meet industry standards.",go:"Look for IPC training centres that offer J-STD-001 or CID, online or in Atlantic Canada.",res:"IPC (ipc.org) certification programs"},
+ {id:"edgeai",n:"Edge AI on Jetson (TensorRT)",p:["rob"],pri:"P3",tag:"FRONTIER",why:"You already have the TaraXL stereo-camera SDK building. Running an object detector on that same hardware turns a bring-up task into a vision project for your resume.",go:"Run a pretrained YOLO model through TensorRT and stream the detections over the network.",res:"NVIDIA Jetson AI Lab tutorials"},
+ {id:"fpga",n:"FPGA on real hardware",p:["emb","pcb"],pri:"P3",why:"You've written Verilog in coursework. Running it on an inexpensive iCE40 board with the open Yosys / nextpnr toolchain gives you real FPGA hardware experience.",go:"Write a UART transmitter in Verilog and have it talk to your laptop.",res:"“Getting Started with FPGAs”, Russell Merrick"},
+ {id:"plc",n:"PLCs & SCADA",p:["pwr"],pri:"P3",why:"Utilities, ports and plants across Atlantic Canada run on PLCs over Modbus, which you already know. Your wind-turbine testbench work leads straight into this.",go:"Write ladder logic in CODESYS that reads a Modbus sensor.",res:"CODESYS development system (free)"},
+ {id:"emc",n:"EMC / EMI pre-compliance",p:["pcb","pwr"],pri:"P3",why:"Motor drives are noisy. Knowing why boards fail emissions testing, and which layout choices prevent it, is something many engineers only learn on the job.",go:"Build a near-field probe from coax and sweep your board with a cheap SDR.",res:"“EMC for Product Designers”, Tim Williams"},
+ {id:"rust",n:"Embedded Rust (Embassy)",p:["emb"],pri:"P3",tag:"FRONTIER",why:"Memory-safe firmware is gaining ground in aerospace and automotive. Embassy runs async Rust on the ESP32 and STM32 boards you'd already have.",go:"Blink an LED and read a sensor with esp-hal on your ESP32.",res:"“The Embedded Rust Book” (docs.rust-embedded.org)"}
+];
+const CLASSES=[
+ ["Microprocessor / microcontroller systems",["emb","rob"],"Formal grounding for your ATmega and ESP32 work: interrupts, memory maps, peripherals, assembly."],
+ ["Electronics II (analog circuits)",["pcb","pwr"],"Op-amps, feedback and filters, the front end of every sensor you integrate."],
+ ["Power electronics",["pwr","pcb"],"Buck and boost converter theory behind your regulator choices, plus motor drives."],
+ ["Control systems",["rob","pwr"],"PID and stability analysis for motor speed control and turbine controllers like the S3A testbench."],
+ ["Signals & systems / DSP",["emb","rob"],"Filtering noisy telemetry, FFTs and sampling theory for sensor data."],
+ ["Electromagnetics & transmission lines",["pcb"],"Why fast traces behave like antennas. This is the theory behind 4-layer layout and EMC."],
+ ["Digital systems design (HDL / FPGA)",["emb","pcb"],"Takes your Verilog from the diploma into synthesis and real timing."],
+ ["Embedded / real-time systems elective",["emb","rob"],"Schedulers, RTOS concepts and deadline-driven firmware."],
+ ["Power systems & renewables",["pwr"],"Grids, protection and wind integration, which matter to Nova Scotia's energy employers."],
+ ["Robotics / mechatronics elective",["rob"],"Kinematics, actuators and sensing, the formal version of what you've built for the combat team."]
+];
+const ACQ=["PCB design (KiCad)","ESP32","ATmega328P","Arduino C/C++","Python test scripts","RS-485 / Modbus","SPI","UART / USB serial","RTC timekeeping","3.3 V regulation","AC–DC rectification","Oscilloscope","PWM motor control","Watchdog failsafes","Differential-drive kinematics","Jetson TX2 bring-up","OpenCV","Docker","Home Assistant IoT","Verilog","Tinkercad","Technical writing","Public speaking","WHMIS 2015"];
+let jPath=store.get("jpath","all"); if(!PATHS[jPath]) jPath="all";
+function renderJarvis(){
+  $("#jpaths").innerHTML=Object.entries(PATHS).map(([k,v])=>`<button class="chip" data-p="${k}" aria-pressed="${k===jPath}">${v}</button>`).join("");
+  $$("#jpaths .chip").forEach(b=>b.onclick=()=>{jPath=b.dataset.p;store.set("jpath",jPath);renderJarvis()});
+  $("#acq").innerHTML=ACQ.map(a=>`<span>✓ ${esc(a)}</span>`).join("");
+  const list=JS.filter(s=>jPath==="all"||s.p.includes(jPath));
+  $("#skgrid").innerHTML=list.map(s=>`<article class="sk" id="sk-${s.id}"><div class="meta"><span class="pri ${s.pri}">${s.pri}</span>${s.tag?`<span class="tag">${s.tag}</span>`:""}<span class="dim" style="font-size:11px">${s.p.map(x=>PATHS[x]).join(" · ")}</span></div><h4>${esc(s.n)}</h4><p>${esc(s.why)}</p><p><span class="lab">First mission</span>${esc(s.go)}</p><p class="dim"><span class="lab">Intel</span>${esc(s.res)}</p></article>`).join("");
+  const cl=CLASSES.filter(c=>jPath==="all"||c[1].includes(jPath));
+  $("#classes").innerHTML=`<thead><tr><th>Course area</th><th>Why it matters for you</th><th>Vector</th></tr></thead><tbody>${cl.map(c=>`<tr><td class="amb" style="min-width:180px">${esc(c[0])}</td><td style="min-width:240px">${esc(c[2])}</td><td class="dim" style="white-space:nowrap">${c[1].map(x=>PATHS[x]).join(", ")}</td></tr>`).join("")}</tbody>`;
+}
+function briefLines(){const h=+new Intl.DateTimeFormat("en-CA",{timeZone:"America/Halifax",hour:"numeric",hour12:false}).format(new Date());
+  const g=h<12?"Good morning":h<18?"Good afternoon":"Good evening";
+  return [`${g}, Moses. Your profile scan is complete.`,
+   "Found: two PCB designs, three compute platforms (ATmega328P, ESP32, Jetson TX2) and three serial buses (RS-485 Modbus, SPI, UART).",
+   "Strongest signal: embedded hardware with power-aware design. That fits firmware, hardware and robotics co-ops.",
+   "Gaps that show up often in co-op postings: I²C, version control, an RTOS, and ARM Cortex-M parts.",
+   "My recommendation: start with LTspice this week. You're choosing a 3S LiPo regulator now, so the simulation pays off right away."]}
+let briefed=false,bTimer=null;
+function jarvisBrief(force){
+  renderJarvis(); if(briefed&&!force) return; briefed=true; clearTimeout(bTimer);
+  const L=briefLines(),box=$("#jlog");box.innerHTML="";
+  if(REDUCE){box.innerHTML=L.map(l=>`<span class="jl">${esc(l)}</span>`).join("");return}
+  let li=0,ci=0,span=null;
+  const step=()=>{if(li>=L.length)return;if(!span){span=document.createElement("span");span.className="jl";box.appendChild(span)}
+    ci+=3;span.textContent=L[li].slice(0,ci);if(ci>=L[li].length){li++;ci=0;span=null;bTimer=setTimeout(step,260)}else bTimer=setTimeout(step,14)};
+  // make the full text available immediately for readers, then type over it
+  box.innerHTML=L.map(l=>`<span class="jl">${esc(l)}</span>`).join("");
+  bTimer=setTimeout(()=>{box.innerHTML="";step()},350);
+}
+$("#jreplay").onclick=()=>jarvisBrief(true);
+$("#jvoice").onclick=()=>{try{const s=window.speechSynthesis;if(!s){$("#jvoice").textContent="Voice not available";return}s.cancel();
+  const u=new SpeechSynthesisUtterance(briefLines().join(" ").replace(/I²C/g,"I squared C").replace(/3S/g,"three S"));u.rate=1.02;u.pitch=.9;
+  const v=s.getVoices().find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||s.getVoices().find(v=>/en-GB/i.test(v.lang));if(v)u.voice=v;s.speak(u)}catch(e){$("#jvoice").textContent="Voice not available"}};
+function jumpSkill(id){jPath="all";show("jarvis");renderJarvis();setTimeout(()=>{const c=$("#sk-"+id);if(c){c.scrollIntoView({behavior:REDUCE?"auto":"smooth",block:"center"});c.classList.add("flash");setTimeout(()=>c.classList.remove("flash"),2200)}},60)}
+
+/* ================= COMMAND LINE ================= */
+const out=$("#cmdout"),hist=[];let hi=0;
+const say=(h,cls="")=>{const d=document.createElement("div");if(cls)d.className=cls;d.innerHTML=h;out.appendChild(d);while(out.children.length>40)out.firstChild.remove();out.scrollTop=out.scrollHeight};
+const CMDS={
+ help:()=>say(`<span class="cy">commands</span>  whoami · ls · open &lt;status|logs|resume|sims|jarvis&gt; · resume &lt;${Object.keys(TARGETS).join("|")}&gt; · play &lt;${Object.keys(GAMES).join("|")}&gt; · skills · ask &lt;question&gt; · contact · clear\n<span class="dim">keys: 1–5 switch tabs · / focuses this prompt · Space feeds the watchdog</span>`),
+ whoami:()=>say("Moses Koshy · Electrical Engineering @ Dalhousie · Embedded Systems & PCB Design · Halifax, NS"),
+ ls:()=>say(VIEWS.map(v=>`<span class="cy">${v}/</span>`).join("  ")),
+ open:a=>{if(VIEWS.includes(a)){show(a);say(`opened ${a}/`)}else say(`open: no such view '${esc(a||"")}'. Try ls`,"bad")},
+ cd:a=>CMDS.open(a),
+ resume:a=>{if(a&&!TARGETS[a]){say(`unknown target. options: ${Object.keys(TARGETS).join(", ")}`,"bad");return}if(a){curT=a;store.set("target",a);renderTargets();renderResume()}show("resume");say(`resume.exe → ${TARGETS[curT].name}`)},
+ play:a=>{const k=a==="watchdog"?"wdt":a==="sniffer"?"modbus":a==="stargazer"?"tour":a==="reglab"?"reg":a;if(!GAMES[k]){say(`games: ${Object.keys(GAMES).join(", ")}`,"bad");return}show("sims");startGame(k);say(`launching ${GAMES[k].t}…`)},
+ skills:()=>say("P1 next: "+JS.filter(s=>s.pri==="P1").map(s=>s.n).join(" · ")),
+ ask:a=>{if(!a){say("J ▸ Ask me something, e.g. ask what should I learn for robotics","cy");return}const q=a.toLowerCase();
+   const path=/robot|ros|jetson|vision/.test(q)?"rob":/power|energy|battery|grid|wind/.test(q)?"pwr":/pcb|board|layout|hardware|kicad/.test(q)?"pcb":/firmware|embedded|code|rtos|mcu/.test(q)?"emb":null;
+   const hit=JS.find(s=>q.includes(s.id)||q.includes(s.n.toLowerCase().split(" ")[0].toLowerCase()));
+   if(hit){say(`J ▸ ${esc(hit.n)}: ${esc(hit.why)} First mission: ${esc(hit.go)}`,"cy");return}
+   if(/class|course/.test(q)){const c=CLASSES.filter(c=>!path||c[1].includes(path)).slice(0,3);say("J ▸ Prioritize: "+c.map(x=>x[0]).join(" · "),"cy");return}
+   if(/resume|cv|job|co-?op/.test(q)){say(`J ▸ Open resume.exe, pick a target, and paste the posting. I'll rank your bullets against it. Best fits right now: ${path?TARGETS[path==="rob"?"rob":path].name:"Embedded Systems or PCB / Hardware"}.`,"cy");return}
+   const r=JS.filter(s=>s.pri==="P1"&&(!path||s.p.includes(path))).slice(0,3);say(`J ▸ For ${path?PATHS[path]:"your profile"}, start with: ${r.map(s=>s.n).join(" · ")}.`,"cy")},
+ contact:()=>say('linkedin.com/in/moses-koshy · <a href="https://www.linkedin.com/in/moses-koshy/" target="_blank" rel="noopener">open profile</a>'),
+ clear:()=>{out.innerHTML=""},
+ sudo:a=>say(/hire/.test(a||"")?'<span class="ok">[sudo] access granted. Recommendation forwarded: candidate is available for co-op. Next step: linkedin.com/in/moses-koshy</span>':"sudo: this incident will be reported.",""),
+ date:()=>say(new Date().toString()),
+ jarvis:()=>{show("jarvis");say("J.A.R.V.I.S. at your service.","cy")}
+};
+Object.assign(CMDS,{status:()=>CMDS.open("status"),logs:()=>CMDS.open("logs"),sims:()=>CMDS.open("sims")});
+$("#cmdf").addEventListener("submit",e=>{e.preventDefault();const v=$("#cmdin").value.trim();$("#cmdin").value="";if(!v)return;hist.push(v);hi=hist.length;
+  say(`<span class="ok">$</span> ${esc(v)}`,"dim");const [c,...r]=v.split(/\s+/);const f=CMDS[c.toLowerCase()];if(f)f(r.join(" ").toLowerCase().trim()||undefined);else say(`${esc(c)}: command not found. Type help`,"bad")});
+$("#cmdin").addEventListener("keydown",e=>{if(e.key==="ArrowUp"&&hi>0){hi--;e.target.value=hist[hi];e.preventDefault()}else if(e.key==="ArrowDown"){hi=Math.min(hist.length,hi+1);e.target.value=hist[hi]||""}else if(e.key==="Escape")e.target.blur()});
+say('<span class="cy">MK-OS ready.</span> <span class="dim">Type help. Keys 1–5 switch tabs.</span>');
+
+/* ================= PCB BACKGROUND ================= */
+(function bg(){
+  const cv=$("#bg"),ctx=cv.getContext("2d");let T=[],W=0,H=0,last=0,raf;
+  function build(){const dpr=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    const G=22,N=Math.round(W*H/16000);T=[];
+    for(let i=0;i<N;i++){let x=Math.round(Math.random()*W/G)*G,y=Math.round(Math.random()*H/G)*G,d=ri(0,7);const pts=[[x,y]];
+      for(let s=0,k=ri(2,6);s<k;s++){const len=ri(1,5)*G,a=d*Math.PI/4;x+=Math.round(Math.cos(a))*len;y+=Math.round(Math.sin(a))*len;pts.push([x,y]);d=(d+pick([-1,0,0,1])+8)%8}
+      let L=0;for(let j=1;j<pts.length;j++)L+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);T.push({pts,L,s:Math.random(),v:rnd(.04,.12),pulse:Math.random()<.22})}}
+  function at(t,u){let d=u*t.L;for(let j=1;j<t.pts.length;j++){const a=t.pts[j-1],b=t.pts[j],l=Math.hypot(b[0]-a[0],b[1]-a[1]);if(d<=l){const f=l?d/l:0;return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]}d-=l}return t.pts[t.pts.length-1]}
+  function draw(now){raf=requestAnimationFrame(draw);if(now-last<40)return;const dt=(now-last)/1000;last=now;
+    ctx.clearRect(0,0,W,H);ctx.lineWidth=1.4;ctx.strokeStyle="rgba(201,119,62,.22)";
+    for(const t of T){ctx.beginPath();t.pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke()}
+    ctx.fillStyle="rgba(201,119,62,.3)";for(const t of T){const p=t.pts[0];ctx.fillRect(p[0]-3,p[1]-3,6,6)}
+    ctx.strokeStyle="rgba(201,119,62,.35)";for(const t of T){const p=t.pts[t.pts.length-1];ctx.beginPath();ctx.arc(p[0],p[1],3.2,0,7);ctx.stroke()}
+    if(!REDUCE){for(const t of T){if(!t.pulse)continue;t.s=(t.s+t.v*dt*3)%1;const [x,y]=at(t,t.s);const gr=ctx.createRadialGradient(x,y,0,x,y,9);gr.addColorStop(0,"rgba(92,232,242,.9)");gr.addColorStop(1,"rgba(92,232,242,0)");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill()}}
+    else cancelAnimationFrame(raf)}
+  build();raf=requestAnimationFrame(draw);let rt;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(build,150)});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)cancelAnimationFrame(raf);else{last=0;raf=requestAnimationFrame(draw)}});
+})();
+
+/* boot route */
+show((location.hash||"#status").slice(1),false);
+</script>
+
+</html>
